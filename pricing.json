@@ -1,0 +1,76 @@
+{
+  "as_of": "2026-08-11",
+  "currency": "USD",
+  "hours_per_month": 730,
+  "notes": [
+    "AWS DX and GCP Interconnect port fees do NOT vary by region — they are global list prices.",
+    "Only egress ($/GB or $/GiB) is region-sensitive.",
+    "AWS bills in decimal GB (10^9 bytes). GCP bills in binary GiB (2^30 bytes). The calculator converts between them.",
+    "CCI Seoul availability confirmed for AWS via KINX Gasan and LG U+ POPs (aws-lgknx, aws-lgu57).",
+    "HA VPN option scales bandwidth via multiple tunnels + TGW ECMP on AWS side.",
+    "Per IPsec tunnel effective throughput ~1.25 Gbps (single flow); aggregate scales with ECMP."
+  ],
+  "sources": {
+    "aws_dx": "https://aws.amazon.com/directconnect/pricing/",
+    "aws_vpn": "https://aws.amazon.com/vpn/pricing/",
+    "aws_tgw": "https://aws.amazon.com/transit-gateway/pricing/",
+    "aws_ec2_dt": "https://aws.amazon.com/ec2/pricing/on-demand/",
+    "gcp_interconnect": "https://cloud.google.com/network-connectivity/docs/interconnect/pricing",
+    "gcp_cci_overview": "https://cloud.google.com/network-connectivity/docs/interconnect/concepts/cci-overview",
+    "gcp_vpc_pricing": "https://cloud.google.com/vpc/network-pricing"
+  },
+  "aws_dx": {
+    "_comment": "Both Option A and Option B use AWS Direct Connect Dedicated port on the AWS side.",
+    "port_hourly": {
+      "10": 2.25,
+      "100": 22.50
+    },
+    "dto_seoul_local_per_gb": 0.041,
+    "_dto_comment": "Local DTO rate: traffic from ap-northeast-2 (Seoul Region) exiting via a Direct Connect location in Seoul (KINX Gasan / LG U+ Pyeongchon / Sejong IX)."
+  },
+  "gcp_di": {
+    "port_hourly": {
+      "10": 2.328,
+      "100": 23.28
+    },
+    "vlan_attachment_hourly": {
+      "10": 0.10,
+      "100": 1.00
+    },
+    "egress_asia_to_asia_per_gib": 0.042
+  },
+  "gcp_cci": {
+    "port_hourly": {
+      "10": 5.60,
+      "100": 30.00
+    },
+    "vlan_attachment_hourly": {
+      "10": 0.10,
+      "100": 1.00
+    },
+    "egress_asia_to_asia_per_gib": 0.042
+  },
+  "ha_vpn": {
+    "_comment": "GCP HA VPN + AWS Site-to-Site VPN. Bandwidth scales with tunnel count via TGW ECMP (>2 tunnels).",
+    "gcp_vpn_tunnel_hourly_seoul": 0.075,
+    "aws_vpn_connection_hourly": 0.05,
+    "aws_tgw_attachment_hourly": 0.05,
+    "aws_tgw_data_processing_per_gb": 0.02,
+    "per_tunnel_effective_gbps": 1.25,
+    "aws_internet_egress_seoul_tiers_per_gb": [
+      { "start_gb": 0,      "price": 0.126 },
+      { "start_gb": 10000,  "price": 0.122 },
+      { "start_gb": 50000,  "price": 0.117 },
+      { "start_gb": 150000, "price": 0.108 }
+    ],
+    "gcp_internet_egress_seoul_to_korea_tiers_per_gib": [
+      { "start_gib": 0,     "price": 0.19 },
+      { "start_gib": 1024,  "price": 0.18 },
+      { "start_gib": 10240, "price": 0.15 }
+    ]
+  },
+  "transfer_time": {
+    "_comment": "Effective throughput ratio to nominal link speed. Interconnect ~85%, VPN per-tunnel already conservative at 1.25 Gbps.",
+    "interconnect_efficiency": 0.85
+  }
+}

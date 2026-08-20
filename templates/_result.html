@@ -1,0 +1,220 @@
+{% set a = option_a %}
+{% set b = option_b %}
+{% set c = option_c %}
+{% set cmp = comparison %}
+{% set cap = capacity %}
+{% set u = inputs.unit %}
+
+{% if inputs.link_count < 2 %}
+<div class="spof">
+  ⚠ <strong>Single point of failure (SPOF)</strong> — 1 link means any outage on the port, fiber, or colo cross-connect drops <strong>all</strong> traffic until repair.
+  Interconnect SLAs (99.9% / 99.99%) require ≥ 2 diverse Active/Active links. <strong>Set Link count to 2 or more.</strong>
+</div>
+{% endif %}
+
+<p class="volcaption">
+  <strong>{{ "%.2f"|format(inputs.amount_total) }} {{ u }}/mo</strong>
+  · AWS→GCP {{ "%.2f"|format(inputs.amount_a2g) }} {{ u }} ({{ "%.0f"|format(inputs.pct_a2g) }}%)
+  · GCP→AWS {{ "%.2f"|format(inputs.amount_g2a) }} {{ u }} ({{ "%.0f"|format(inputs.pct_g2a) }}%)
+  <span class="fieldhint">= {{ "%.2f"|format(inputs.total_tb) }} TB · {{ "%.2f"|format(inputs.total_tib) }} TiB</span>
+</p>
+
+<div class="summary summary-3">
+  <div class="totalbox {% if cmp.cheaper == 'A' %}winner{% endif %}">
+    <div class="lbl">Option A · AWS DX + GCP DI</div>
+    <div class="total">{{ a.total|money }}</div>
+    <div class="pergb">{{ a.per_gb|money }} / GB (A→G)</div>
+    <div class="bwtime">
+      <span class="bw">{{ "%.1f"|format(a.bw_gbps) }} Gbps eff.</span>
+      <span class="time">A→G: {{ a.time_h|hours }}</span>
+    </div>
+  </div>
+  <div class="totalbox {% if cmp.cheaper == 'B' %}winner{% endif %}">
+    <div class="lbl">Option B · Cross-Cloud Interconnect</div>
+    <div class="total">{{ b.total|money }}</div>
+    <div class="pergb">{{ b.per_gb|money }} / GB (A→G)</div>
+    <div class="bwtime">
+      <span class="bw">{{ "%.1f"|format(b.bw_gbps) }} Gbps eff.</span>
+      <span class="time">A→G: {{ b.time_h|hours }}</span>
+    </div>
+  </div>
+  <div class="totalbox {% if cmp.cheaper == 'C' %}winner{% endif %}">
+    <div class="lbl">Option C · HA VPN ({{ inputs.vpn_tunnels }} tunnels{% if inputs.uses_tgw %} + TGW ECMP{% endif %})</div>
+    <div class="total">{{ c.total|money }}</div>
+    <div class="pergb">{{ c.per_gb|money }} / GB (A→G)</div>
+    <div class="bwtime">
+      <span class="bw">{{ "%.1f"|format(c.bw_gbps) }} Gbps eff.</span>
+      <span class="time">A→G: {{ c.time_h|hours }}</span>
+    </div>
+  </div>
+</div>
+
+<p class="verdict">
+  Cheapest option: <strong>Option {{ cmp.cheaper }}</strong>
+</p>
+
+<div class="cap {% if cap.over_capacity %}warn{% endif %}">
+  Capacity (A/B ports only): avg <strong>{{ "%.2f"|format(cap.avg_gbps) }} Gbps</strong>
+  / aggregate <strong>{{ cap.aggregate_gbps }} Gbps</strong>
+  → utilization <strong>{{ "%.1f"|format(cap.utilization_pct) }}%</strong>
+  {% if cap.over_capacity %}
+    <span class="danger">⚠ Under capacity — add more links or use higher port speed.</span>
+  {% elif cap.utilization_pct > 70 %}
+    <span class="warn-text">⚠ >70% — consider adding a link for headroom.</span>
+  {% endif %}
+</div>
+
+<table class="breakdown">
+  <thead>
+    <tr>
+      <th>Line item</th>
+      <th>Option A</th>
+      <th>Option B</th>
+      <th>Option C (HA VPN)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr class="catrow">
+      <td>① Infrastructure <span class="cattag">fixed cost</span></td>
+      <td>{{ a.infra.subtotal|money }}</td>
+      <td>{{ b.infra.subtotal|money }}</td>
+      <td>{{ c.infra.subtotal|money }}</td>
+    </tr>
+    <tr class="subrow">
+      <td>AWS DX Dedicated port × {{ inputs.link_count }} ({{ inputs.port_gbps }} Gbps)</td>
+      <td>{{ a.infra.aws_port|money }}</td>
+      <td>{{ b.infra.aws_port|money }}</td>
+      <td class="muted">n/a</td>
+    </tr>
+    <tr class="subrow">
+      <td>GCP port × {{ inputs.link_count }} ({{ inputs.port_gbps }} Gbps)</td>
+      <td>{{ a.infra.gcp_port|money }}</td>
+      <td>{{ b.infra.gcp_port|money }}</td>
+      <td class="muted">n/a</td>
+    </tr>
+    <tr class="subrow">
+      <td>GCP VLAN attachment × {{ inputs.link_count }}</td>
+      <td>{{ a.infra.gcp_vlan|money }}</td>
+      <td>{{ b.infra.gcp_vlan|money }}</td>
+      <td class="muted">n/a</td>
+    </tr>
+    <tr class="subrow">
+      <td>Colo cross-connect × {{ inputs.link_count }}</td>
+      <td>{{ a.infra.colo|money }}</td>
+      <td class="muted">n/a</td>
+      <td class="muted">n/a</td>
+    </tr>
+    <tr class="subrow">
+      <td>GCP HA VPN tunnels × {{ inputs.vpn_tunnels }} ($0.075/hr Seoul)</td>
+      <td class="muted">n/a</td>
+      <td class="muted">n/a</td>
+      <td>{{ c.infra.gcp_tunnel|money }}</td>
+    </tr>
+    <tr class="subrow">
+      <td>AWS S2S VPN connections × {{ inputs.aws_vpn_connections }}</td>
+      <td class="muted">n/a</td>
+      <td class="muted">n/a</td>
+      <td>{{ c.infra.aws_vpn|money }}</td>
+    </tr>
+    {% if inputs.uses_tgw %}
+    <tr class="subrow">
+      <td>AWS TGW VPN attachment × {{ inputs.aws_vpn_connections }}</td>
+      <td class="muted">n/a</td>
+      <td class="muted">n/a</td>
+      <td>{{ c.infra.aws_tgw_attach|money }}</td>
+    </tr>
+    {% endif %}
+
+    <tr class="catrow">
+      <td>② AWS → GCP egress <span class="cattag">traffic-based</span></td>
+      <td>{{ a.egress_a2g.subtotal|money }}</td>
+      <td>{{ b.egress_a2g.subtotal|money }}</td>
+      <td>{{ c.egress_a2g.subtotal|money }}</td>
+    </tr>
+    <tr class="subrow">
+      <td>AWS DX Local DTO — Seoul → Seoul (per decimal GB)</td>
+      <td>{{ a.egress_a2g.aws_dto|money }}</td>
+      <td>{{ b.egress_a2g.aws_dto|money }}</td>
+      <td class="muted">n/a</td>
+    </tr>
+    <tr class="subrow">
+      <td>AWS Internet egress (tiered)</td>
+      <td class="muted">n/a</td>
+      <td class="muted">n/a</td>
+      <td>{{ c.egress_a2g.aws_internet_egress|money }}</td>
+    </tr>
+    {% if inputs.uses_tgw %}
+    <tr class="subrow">
+      <td>AWS TGW data processing ($0.02/GB)</td>
+      <td class="muted">n/a</td>
+      <td class="muted">n/a</td>
+      <td>{{ c.egress_a2g.aws_tgw_data|money }}</td>
+    </tr>
+    {% endif %}
+
+    <tr class="catrow">
+      <td>③ GCP → AWS egress <span class="cattag">traffic-based</span></td>
+      <td>{{ a.egress_g2a.subtotal|money }}</td>
+      <td>{{ b.egress_g2a.subtotal|money }}</td>
+      <td>{{ c.egress_g2a.subtotal|money }}</td>
+    </tr>
+    <tr class="subrow">
+      <td>GCP Interconnect egress (per binary GiB, Asia→Asia)</td>
+      <td>{{ a.egress_g2a.gcp_egress|money }}</td>
+      <td>{{ b.egress_g2a.gcp_egress|money }}</td>
+      <td class="muted">n/a</td>
+    </tr>
+    <tr class="subrow">
+      <td>GCP Internet egress Seoul → S.Korea (tiered)</td>
+      <td class="muted">n/a</td>
+      <td class="muted">n/a</td>
+      <td>{{ c.egress_g2a.gcp_internet_egress|money }}</td>
+    </tr>
+
+    <tr class="totalrow">
+      <td>Monthly total</td>
+      <td>{{ a.total|money }}</td>
+      <td>{{ b.total|money }}</td>
+      <td>{{ c.total|money }}</td>
+    </tr>
+    <tr class="totalrow">
+      <td>Effective bandwidth (A→G direction)</td>
+      <td>{{ "%.1f"|format(a.bw_gbps) }} Gbps</td>
+      <td>{{ "%.1f"|format(b.bw_gbps) }} Gbps</td>
+      <td>{{ "%.1f"|format(c.bw_gbps) }} Gbps</td>
+    </tr>
+    <tr class="totalrow">
+      <td>Transfer time for {{ "%.2f"|format(inputs.amount_a2g) }} {{ u }} A→G</td>
+      <td>{{ a.time_h|hours }}</td>
+      <td>{{ b.time_h|hours }}</td>
+      <td>{{ c.time_h|hours }}</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="notice">
+  <strong>Option scope notes:</strong>
+  <ul>
+    <li><strong>Option A (DI + AWS DX)</strong>: does <strong>not</strong> include customer-owned router hardware/support, colo rack/power/cooling, remote hands, or operational labor. Add several $K/mo depending on device class and facility.</li>
+    <li><strong>Option B (CCI)</strong>: sidesteps colo/router stack — CCI provider operates the intermediate infrastructure. AWS DX Dedicated port fee still applies.</li>
+    <li><strong>Option C (HA VPN)</strong>: no colo required. Bandwidth scales via tunnel count + TGW ECMP. Per-tunnel effective ~1.25 Gbps (single flow); higher throughput requires multiple parallel streams. TGW data processing ($0.02/GB) applies when >2 tunnels.</li>
+    <li><strong>Effective bandwidth</strong>: Interconnect = nominal × 85%; VPN = tunnels × 1.25 Gbps.</li>
+  </ul>
+</div>
+
+<div class="exportbar"
+     data-a2g="{{ inputs.amount_a2g }}"
+     data-g2a="{{ inputs.amount_g2a }}"
+     data-unit="{{ inputs.unit }}"
+     data-port="{{ inputs.port_gbps }}"
+     data-links="{{ inputs.link_count }}"
+     data-colo="{{ inputs.colo_per_link_monthly }}"
+     data-vpn="{{ inputs.vpn_tunnels }}">
+  <span class="exportlbl">Export:</span>
+  <button type="button" class="exportbtn" onclick="downloadExport(this, 'csv')">⬇ CSV</button>
+  <button type="button" class="exportbtn" onclick="downloadExport(this, 'md')">⬇ Markdown</button>
+</div>
+
+<p class="fieldhint">
+  Prices as of {{ pricing_as_of }}. Per-GB figures are per decimal GB.
+</p>

@@ -1,0 +1,500 @@
+from __future__ import annotations
+
+import csv
+import io
+import json
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Literal
+
+import markdown as md_lib
+from fastapi import FastAPI, Form
+from fastapi.responses import HTMLResponse, PlainTextResponse, Response
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from starlette.requests import Request
+
+BASE_DIR = Path(__file__).parent
+PRICING = json.loads((BASE_DIR / "pricing.json").read_text())
+
+# Unit factor to bytes.
+# TB / PB are decimal (SI): 1 TB = 10^12 B, 1 PB = 10^15 B.
+# TiB / PiB are binary (IEC): 1 TiB = 2^40 B, 1 PiB = 2^50 B.
+UNIT_TO_BYTES = {
+    "TB":  10 ** 12,
+    "TiB": 2  ** 40,
+    "PB":  10 ** 15,
+    "PiB": 2  ** 50,
+}
+GB_BYTES  = 10 ** 9   # AWS bills DTO per decimal GB
+GIB_BYTES = 2  ** 30  # GCP bills Interconnect egress per binary GiB
+
+app = FastAPI(title="Interconnect Cost Calculator")
+templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
+
+
+def _fmt(n: float) -> str:
+    return f"${n:,.2f}"
+
+
+def _fmt_hours(h: float) -> str:
+    if h < 1:
+        return f"{h*60:.0f} min"
+    if h < 24:
+        return f"{h:.1f} h"
+    return f"{h:.1f} h ({h/24:.1f} d)"
+
+
+templates.env.filters["money"] = _fmt
+templates.env.filters["hours"] = _fmt_hours
+
+
+def _tiered_cost_gb(amount_gb: float, tiers: list[dict]) -> float:
+    """Apply tiered pricing where each tier starts at start_gb."""
+    if amount_gb <= 0:
+        return 0.0
+    cost = 0.0
+    remaining = amount_gb
+    for i, tier in enumerate(tiers):
+        start = tier["start_gb"]
+        price = tier["price"]
+        next_start = tiers[i + 1]["start_gb"] if i + 1 < len(tiers) else float("inf")
+        tier_size = next_start - start
+        used_in_tier = min(remaining, tier_size) if next_start != float("inf") else remaining
+        # Only count if we're past this tier's start
+        if amount_gb > start:
+            in_tier = min(amount_gb - start, tier_size) if next_start != float("inf") else amount_gb - start
+            cost += in_tier * price
+    return cost
+
+
+def _tiered_cost_gib(amount_gib: float, tiers: list[dict]) -> float:
+    """Apply tiered pricing where each tier starts at start_gib."""
+    if amount_gib <= 0:
+        return 0.0
+    cost = 0.0
+    for i, tier in enumerate(tiers):
+        start = tier["start_gib"]
+        price = tier["price"]
+        next_start = tiers[i + 1]["start_gib"] if i + 1 < len(tiers) else float("inf")
+        tier_size = next_start - start
+        if amount_gib > start:
+            in_tier = min(amount_gib - start, tier_size) if next_start != float("inf") else amount_gib - start
+            cost += in_tier * price
+    return cost
+
+
+def _transfer_time_hours(bytes_total: float, effective_gbps: float) -> float:
+    if effective_gbps <= 0 or bytes_total <= 0:
+        return 0.0
+    bits = bytes_total * 8.0
+    return bits / (effective_gbps * 1e9) / 3600.0
+
+
+def calculate(
+    amount_a2g: float,
+    amount_g2a: float,
+    unit: str,
+    port_gbps: Literal[10, 100],
+    link_count: int,
+    colo_per_link_monthly: float,
+    vpn_tunnels: int,
+) -> dict:
+    hours = PRICING["hours_per_month"]
+    aws_dx = PRICING["aws_dx"]
+    gcp_di = PRICING["gcp_di"]
+    gcp_cci = PRICING["gcp_cci"]
+    vpn = PRICING["ha_vpn"]
+    eff_ratio = PRICING["transfer_time"]["interconnect_efficiency"]
+    key = str(port_gbps)
+
+    if unit not in UNIT_TO_BYTES:
+        unit = "TB"
+    factor = UNIT_TO_BYTES[unit]
+
+    bytes_a2g = amount_a2g * factor
+    bytes_g2a = amount_g2a * factor
+    bytes_total = bytes_a2g + bytes_g2a
+
+    # AWS bills Data Transfer Out in decimal GB; GCP bills Interconnect egress in binary GiB.
+    gb_a2g = bytes_a2g / GB_BYTES
+    gib_g2a = bytes_g2a / GIB_BYTES
+
+    aws_dto_a2g = gb_a2g * aws_dx["dto_seoul_local_per_gb"]
+    gcp_egress_g2a_ic = gib_g2a * gcp_di["egress_asia_to_asia_per_gib"]
+
+    # --- Option A: AWS DX + GCP DI ---
+    a_aws_port = aws_dx["port_hourly"][key] * hours * link_count
+    a_gcp_port = gcp_di["port_hourly"][key] * hours * link_count
+    a_gcp_vlan = gcp_di["vlan_attachment_hourly"][key] * hours * link_count
+    a_colo = colo_per_link_monthly * link_count
+    a_infra = a_aws_port + a_gcp_port + a_gcp_vlan + a_colo
+    a_total = a_infra + aws_dto_a2g + gcp_egress_g2a_ic
+    a_bw_gbps = port_gbps * link_count * eff_ratio
+    a_time_h = _transfer_time_hours(bytes_a2g, a_bw_gbps)
+
+    # --- Option B: Cross-Cloud Interconnect ---
+    b_aws_port = aws_dx["port_hourly"][key] * hours * link_count
+    b_gcp_port = gcp_cci["port_hourly"][key] * hours * link_count
+    b_gcp_vlan = gcp_cci["vlan_attachment_hourly"][key] * hours * link_count
+    b_infra = b_aws_port + b_gcp_port + b_gcp_vlan
+    b_total = b_infra + aws_dto_a2g + gcp_egress_g2a_ic
+    b_bw_gbps = port_gbps * link_count * eff_ratio
+    b_time_h = _transfer_time_hours(bytes_a2g, b_bw_gbps)
+
+    # --- Option C: HA VPN (scales via TGW ECMP) ---
+    tunnels = max(2, int(vpn_tunnels))
+    # Each AWS Site-to-Site VPN connection has 2 tunnels
+    aws_vpn_connections = max(1, tunnels // 2)
+    uses_tgw = tunnels > 2
+
+    c_gcp_tunnel = vpn["gcp_vpn_tunnel_hourly_seoul"] * tunnels * hours
+    c_aws_vpn = vpn["aws_vpn_connection_hourly"] * aws_vpn_connections * hours
+    if uses_tgw:
+        c_aws_tgw_attach = vpn["aws_tgw_attachment_hourly"] * aws_vpn_connections * hours
+        c_aws_tgw_data = vpn["aws_tgw_data_processing_per_gb"] * gb_a2g
+    else:
+        c_aws_tgw_attach = 0.0
+        c_aws_tgw_data = 0.0
+
+    c_infra = c_gcp_tunnel + c_aws_vpn + c_aws_tgw_attach
+    # AWS Internet egress (tiered) for A→G direction
+    c_aws_internet_egress = _tiered_cost_gb(gb_a2g, vpn["aws_internet_egress_seoul_tiers_per_gb"])
+    # GCP Internet egress (tiered) for G→A direction (Seoul → South Korea)
+    c_gcp_internet_egress = _tiered_cost_gib(gib_g2a, vpn["gcp_internet_egress_seoul_to_korea_tiers_per_gib"])
+    c_total = c_infra + c_aws_internet_egress + c_aws_tgw_data + c_gcp_internet_egress
+    c_bw_gbps = tunnels * vpn["per_tunnel_effective_gbps"]
+    c_time_h = _transfer_time_hours(bytes_a2g, c_bw_gbps)
+
+    # capacity utilization (Gbps average vs aggregate link capacity)
+    total_bits = bytes_total * 8.0
+    avg_gbps = total_bits / (hours * 3600.0) / 1e9
+    aggregate_gbps = port_gbps * link_count
+    utilization = (avg_gbps / aggregate_gbps) * 100.0 if aggregate_gbps else 0.0
+
+    per_gb_a = a_total / gb_a2g if gb_a2g else 0.0
+    per_gb_b = b_total / gb_a2g if gb_a2g else 0.0
+    per_gb_c = c_total / gb_a2g if gb_a2g else 0.0
+
+    pct_a2g = (bytes_a2g / bytes_total * 100.0) if bytes_total else 0.0
+    pct_g2a = (bytes_g2a / bytes_total * 100.0) if bytes_total else 0.0
+
+    # Determine cheapest option
+    totals = {"A": a_total, "B": b_total, "C": c_total}
+    cheaper = min(totals, key=totals.get)
+
+    return {
+        "inputs": {
+            "unit": unit,
+            "amount_a2g": amount_a2g,
+            "amount_g2a": amount_g2a,
+            "amount_total": amount_a2g + amount_g2a,
+            "bytes_total": bytes_total,
+            "port_gbps": port_gbps,
+            "link_count": link_count,
+            "colo_per_link_monthly": colo_per_link_monthly,
+            "vpn_tunnels": tunnels,
+            "aws_vpn_connections": aws_vpn_connections,
+            "uses_tgw": uses_tgw,
+            "pct_a2g": pct_a2g,
+            "pct_g2a": pct_g2a,
+            "total_tb":  bytes_total / (10 ** 12),
+            "total_tib": bytes_total / (2  ** 40),
+        },
+        "option_a": {
+            "label": "AWS DX + GCP Dedicated Interconnect",
+            "infra": {
+                "subtotal": a_infra,
+                "aws_port": a_aws_port,
+                "gcp_port": a_gcp_port,
+                "gcp_vlan": a_gcp_vlan,
+                "colo": a_colo,
+            },
+            "egress_a2g": {"subtotal": aws_dto_a2g, "aws_dto": aws_dto_a2g},
+            "egress_g2a": {"subtotal": gcp_egress_g2a_ic, "gcp_egress": gcp_egress_g2a_ic},
+            "total": a_total,
+            "per_gb": per_gb_a,
+            "bw_gbps": a_bw_gbps,
+            "time_h": a_time_h,
+        },
+        "option_b": {
+            "label": "Cross-Cloud Interconnect",
+            "infra": {
+                "subtotal": b_infra,
+                "aws_port": b_aws_port,
+                "gcp_port": b_gcp_port,
+                "gcp_vlan": b_gcp_vlan,
+            },
+            "egress_a2g": {"subtotal": aws_dto_a2g, "aws_dto": aws_dto_a2g},
+            "egress_g2a": {"subtotal": gcp_egress_g2a_ic, "gcp_egress": gcp_egress_g2a_ic},
+            "total": b_total,
+            "per_gb": per_gb_b,
+            "bw_gbps": b_bw_gbps,
+            "time_h": b_time_h,
+        },
+        "option_c": {
+            "label": f"HA VPN ({tunnels} tunnels{' + TGW ECMP' if uses_tgw else ''})",
+            "infra": {
+                "subtotal": c_infra,
+                "gcp_tunnel": c_gcp_tunnel,
+                "aws_vpn": c_aws_vpn,
+                "aws_tgw_attach": c_aws_tgw_attach,
+            },
+            "egress_a2g": {
+                "subtotal": c_aws_internet_egress + c_aws_tgw_data,
+                "aws_internet_egress": c_aws_internet_egress,
+                "aws_tgw_data": c_aws_tgw_data,
+            },
+            "egress_g2a": {
+                "subtotal": c_gcp_internet_egress,
+                "gcp_internet_egress": c_gcp_internet_egress,
+            },
+            "total": c_total,
+            "per_gb": per_gb_c,
+            "bw_gbps": c_bw_gbps,
+            "time_h": c_time_h,
+            "uses_tgw": uses_tgw,
+        },
+        "comparison": {
+            "cheaper": cheaper,
+            "totals": totals,
+        },
+        "capacity": {
+            "avg_gbps": avg_gbps,
+            "aggregate_gbps": aggregate_gbps,
+            "utilization_pct": utilization,
+            "over_capacity": utilization > 100.0,
+        },
+        "pricing_as_of": PRICING["as_of"],
+    }
+
+
+@app.get("/", response_class=HTMLResponse)
+async def index(request: Request):
+    return templates.TemplateResponse(
+        request,
+        "index.html",
+        {"pricing_as_of": PRICING["as_of"], "sources": PRICING["sources"]},
+    )
+
+
+@app.post("/calculate", response_class=HTMLResponse)
+async def calc(
+    request: Request,
+    amount_a2g: float = Form(...),
+    amount_g2a: float = Form(...),
+    unit: str = Form("TB"),
+    port_gbps: int = Form(10),
+    link_count: int = Form(2),
+    colo_per_link_monthly: float = Form(0.0),
+    vpn_tunnels: int = Form(2),
+):
+    ctx = calculate(amount_a2g, amount_g2a, unit, port_gbps, link_count, colo_per_link_monthly, vpn_tunnels)
+    return templates.TemplateResponse(request, "_result.html", ctx)
+
+
+# ---------------- Export ----------------
+
+def _scenario_slug(ctx: dict) -> str:
+    i = ctx["inputs"]
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%MZ")
+    return (
+        f"interconnect-calc_"
+        f"{int(round(i['amount_a2g']))}+{int(round(i['amount_g2a']))}{i['unit']}_"
+        f"{i['port_gbps']}G-x{i['link_count']}_vpn{i['vpn_tunnels']}t_{stamp}"
+    )
+
+
+def _render_csv(ctx: dict) -> str:
+    i = ctx["inputs"]
+    a, b, c = ctx["option_a"], ctx["option_b"], ctx["option_c"]
+    cmp_, cap = ctx["comparison"], ctx["capacity"]
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["Interconnect Cost Calculator — AWS Seoul (ap-northeast-2) <-> GCP Seoul (asia-northeast3)"])
+    w.writerow(["Prices as of", ctx["pricing_as_of"]])
+    w.writerow(["Currency", "USD (monthly, list price only)"])
+    w.writerow(["Generated (UTC)", datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ")])
+    w.writerow([])
+    w.writerow(["INPUTS"])
+    w.writerow(["Data volume unit", i["unit"]])
+    w.writerow([f"AWS -> GCP transfer ({i['unit']})", f"{i['amount_a2g']:.4f}"])
+    w.writerow([f"GCP -> AWS transfer ({i['unit']})", f"{i['amount_g2a']:.4f}"])
+    w.writerow([f"Total transfer ({i['unit']})", f"{i['amount_total']:.4f}"])
+    w.writerow(["Total transfer (TB, decimal)", f"{i['total_tb']:.4f}"])
+    w.writerow(["Total transfer (TiB, binary)", f"{i['total_tib']:.4f}"])
+    w.writerow(["Port speed (Gbps)", i["port_gbps"]])
+    w.writerow(["Link count (Active/Active)", i["link_count"]])
+    w.writerow(["VPN tunnels (Option C)", i["vpn_tunnels"]])
+    w.writerow(["Colo cross-connect USD/mo per link", f"{i['colo_per_link_monthly']:.2f}"])
+    w.writerow([])
+    w.writerow(["BREAKDOWN (USD/month)"])
+    w.writerow(["Category", "Line item", "Option A", "Option B", "Option C"])
+    w.writerow(["1) Infrastructure (FIXED)",
+                f"Port / Tunnel × {i['link_count']}/{i['link_count']}/{i['vpn_tunnels']}",
+                f"{a['infra']['subtotal']:.2f}",
+                f"{b['infra']['subtotal']:.2f}",
+                f"{c['infra']['subtotal']:.2f}"])
+    w.writerow(["2) AWS -> GCP egress (TRAFFIC)",
+                f"{i['amount_a2g']:.2f} {i['unit']}",
+                f"{a['egress_a2g']['subtotal']:.2f}",
+                f"{b['egress_a2g']['subtotal']:.2f}",
+                f"{c['egress_a2g']['subtotal']:.2f}"])
+    w.writerow(["3) GCP -> AWS egress (TRAFFIC)",
+                f"{i['amount_g2a']:.2f} {i['unit']}",
+                f"{a['egress_g2a']['subtotal']:.2f}",
+                f"{b['egress_g2a']['subtotal']:.2f}",
+                f"{c['egress_g2a']['subtotal']:.2f}"])
+    w.writerow(["MONTHLY TOTAL", "",
+                f"{a['total']:.2f}", f"{b['total']:.2f}", f"{c['total']:.2f}"])
+    w.writerow(["Effective bandwidth (Gbps)", "",
+                f"{a['bw_gbps']:.2f}", f"{b['bw_gbps']:.2f}", f"{c['bw_gbps']:.2f}"])
+    w.writerow([f"Transfer time for {i['amount_a2g']:.2f} {i['unit']} A->G (hours)", "",
+                f"{a['time_h']:.2f}", f"{b['time_h']:.2f}", f"{c['time_h']:.2f}"])
+    w.writerow([])
+    w.writerow(["Cheapest option", f"Option {cmp_['cheaper']}"])
+    w.writerow([])
+    w.writerow(["NOTES"])
+    w.writerow(["List price only. No enterprise discounts (AWS EDP/PPA, GCP CUD), no free tiers, no promotional credits."])
+    w.writerow(["Option C (HA VPN): >2 tunnels use AWS Transit Gateway ECMP. TGW attachment + data processing charges apply."])
+    w.writerow(["Transfer time = data / effective_bandwidth. Interconnect eff ratio 85%, VPN per-tunnel 1.25 Gbps."])
+    w.writerow(["AWS bills per decimal GB (10^9 B); GCP bills per binary GiB (2^30 B)."])
+    return buf.getvalue()
+
+
+def _render_markdown(ctx: dict) -> str:
+    i = ctx["inputs"]
+    a, b, c = ctx["option_a"], ctx["option_b"], ctx["option_c"]
+    cmp_ = ctx["comparison"]
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ")
+    m = _fmt
+
+    lines = []
+    lines.append("# Interconnect Cost Calculator — Result")
+    lines.append("")
+    lines.append(f"**Route:** AWS Seoul (`ap-northeast-2`) ↔ GCP Seoul (`asia-northeast3`)  ")
+    lines.append(f"**Prices as of:** {ctx['pricing_as_of']}  ")
+    lines.append(f"**Generated:** {ts}  ")
+    lines.append("**Currency:** USD (monthly, list price only)")
+    lines.append("")
+    lines.append("## Inputs")
+    lines.append("")
+    lines.append("| Field | Value |")
+    lines.append("|---|---|")
+    lines.append(f"| Data volume unit | `{i['unit']}` |")
+    lines.append(f"| AWS → GCP transfer | {i['amount_a2g']:.2f} {i['unit']} |")
+    lines.append(f"| GCP → AWS transfer | {i['amount_g2a']:.2f} {i['unit']} |")
+    lines.append(f"| Total transfer | {i['amount_total']:.2f} {i['unit']} = {i['total_tb']:.2f} TB = {i['total_tib']:.2f} TiB |")
+    lines.append(f"| Port speed (A/B) | {i['port_gbps']} Gbps × {i['link_count']} |")
+    lines.append(f"| VPN tunnels (C) | {i['vpn_tunnels']}{' (via TGW ECMP)' if i['uses_tgw'] else ''} |")
+    lines.append(f"| Colo cross-connect (Option A only) | {m(i['colo_per_link_monthly'])} / month / link |")
+    lines.append("")
+    lines.append("## Summary")
+    lines.append("")
+    lines.append(f"- **Option A — AWS DX + GCP DI:** {m(a['total'])} / month · {a['bw_gbps']:.1f} Gbps eff · A→G time {_fmt_hours(a['time_h'])}")
+    lines.append(f"- **Option B — Cross-Cloud Interconnect:** {m(b['total'])} / month · {b['bw_gbps']:.1f} Gbps eff · A→G time {_fmt_hours(b['time_h'])}")
+    lines.append(f"- **Option C — HA VPN ({i['vpn_tunnels']} tunnels):** {m(c['total'])} / month · {c['bw_gbps']:.1f} Gbps eff · A→G time {_fmt_hours(c['time_h'])}")
+    lines.append("")
+    lines.append(f"**Cheapest:** Option **{cmp_['cheaper']}**")
+    lines.append("")
+    lines.append("## Cost breakdown (USD / month)")
+    lines.append("")
+    lines.append("| Category | Option A | Option B | Option C |")
+    lines.append("|---|---:|---:|---:|")
+    lines.append(f"| ① Infrastructure (fixed) | {m(a['infra']['subtotal'])} | {m(b['infra']['subtotal'])} | {m(c['infra']['subtotal'])} |")
+    lines.append(f"| ② AWS → GCP egress | {m(a['egress_a2g']['subtotal'])} | {m(b['egress_a2g']['subtotal'])} | {m(c['egress_a2g']['subtotal'])} |")
+    lines.append(f"| ③ GCP → AWS egress | {m(a['egress_g2a']['subtotal'])} | {m(b['egress_g2a']['subtotal'])} | {m(c['egress_g2a']['subtotal'])} |")
+    lines.append(f"| **Monthly total** | **{m(a['total'])}** | **{m(b['total'])}** | **{m(c['total'])}** |")
+    lines.append(f"| Effective bandwidth | {a['bw_gbps']:.1f} Gbps | {b['bw_gbps']:.1f} Gbps | {c['bw_gbps']:.1f} Gbps |")
+    lines.append(f"| Transfer time (A→G) | {_fmt_hours(a['time_h'])} | {_fmt_hours(b['time_h'])} | {_fmt_hours(c['time_h'])} |")
+    lines.append("")
+    lines.append("## Notes")
+    lines.append("- List price only. No enterprise discounts, no free tiers, no promotional credits.")
+    lines.append("- Option C uses AWS Transit Gateway ECMP when >2 tunnels (adds TGW attachment + data processing).")
+    lines.append("- Effective bandwidth: Interconnect ~85% of nominal; VPN per-tunnel 1.25 Gbps (single flow).")
+    lines.append("- AWS bills per **decimal GB**; GCP bills per **binary GiB**.")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _parse_export_inputs(
+    amount_a2g: float, amount_g2a: float, unit: str,
+    port_gbps: int, link_count: int, colo_per_link_monthly: float, vpn_tunnels: int,
+) -> dict:
+    return calculate(amount_a2g, amount_g2a, unit, port_gbps, link_count, colo_per_link_monthly, vpn_tunnels)
+
+
+@app.post("/export/csv")
+async def export_csv(
+    amount_a2g: float = Form(...),
+    amount_g2a: float = Form(...),
+    unit: str = Form("TB"),
+    port_gbps: int = Form(10),
+    link_count: int = Form(2),
+    colo_per_link_monthly: float = Form(0.0),
+    vpn_tunnels: int = Form(2),
+):
+    ctx = _parse_export_inputs(amount_a2g, amount_g2a, unit, port_gbps, link_count, colo_per_link_monthly, vpn_tunnels)
+    body = _render_csv(ctx)
+    filename = f"{_scenario_slug(ctx)}.csv"
+    return Response(
+        content=body,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@app.post("/export/md")
+async def export_md(
+    amount_a2g: float = Form(...),
+    amount_g2a: float = Form(...),
+    unit: str = Form("TB"),
+    port_gbps: int = Form(10),
+    link_count: int = Form(2),
+    colo_per_link_monthly: float = Form(0.0),
+    vpn_tunnels: int = Form(2),
+):
+    ctx = _parse_export_inputs(amount_a2g, amount_g2a, unit, port_gbps, link_count, colo_per_link_monthly, vpn_tunnels)
+    body = _render_markdown(ctx)
+    filename = f"{_scenario_slug(ctx)}.md"
+    return Response(
+        content=body,
+        media_type="text/markdown; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+GUIDE_PATH = BASE_DIR / "USER_GUIDE.md"
+_GUIDE_CACHE: dict = {"mtime": 0.0, "html": ""}
+
+
+def _render_guide_html() -> str:
+    mtime = GUIDE_PATH.stat().st_mtime
+    if _GUIDE_CACHE["mtime"] != mtime or not _GUIDE_CACHE["html"]:
+        text = GUIDE_PATH.read_text(encoding="utf-8")
+        _GUIDE_CACHE["html"] = md_lib.markdown(
+            text,
+            extensions=["extra", "tables", "toc", "sane_lists", "fenced_code"],
+        )
+        _GUIDE_CACHE["mtime"] = mtime
+    return _GUIDE_CACHE["html"]
+
+
+@app.get("/guide", response_class=HTMLResponse)
+async def guide(request: Request):
+    return templates.TemplateResponse(
+        request,
+        "guide.html",
+        {"body_html": _render_guide_html(), "pricing_as_of": PRICING["as_of"]},
+    )
+
+
+@app.get("/guide.md", response_class=PlainTextResponse)
+async def guide_md():
+    return PlainTextResponse(GUIDE_PATH.read_text(encoding="utf-8"), media_type="text/markdown; charset=utf-8")
+
+
+@app.get("/healthz")
+async def healthz():
+    return {"ok": True}

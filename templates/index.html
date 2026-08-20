@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Interconnect Cost Calculator v2 — AWS ↔ GCP (Seoul)</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <script>
+    const UNIT_BYTES = { TB: 1e12, TiB: Math.pow(2,40), PB: 1e15, PiB: Math.pow(2,50) };
+    function fmtTotal(form) {
+      const a = +form.elements.amount_a2g.value || 0;
+      const g = +form.elements.amount_g2a.value || 0;
+      const u = form.elements.unit.value;
+      const bytes = (a + g) * UNIT_BYTES[u];
+      const tb  = (bytes / 1e12);
+      const tib = (bytes / Math.pow(2,40));
+      document.getElementById('totalsum').textContent =
+        (a + g).toLocaleString() + ' ' + u +
+        ' (' + tb.toFixed(2) + ' TB · ' + tib.toFixed(2) + ' TiB)';
+    }
+
+    async function downloadExport(btn, fmt) {
+      const bar = btn.closest('.exportbar');
+      const body = new URLSearchParams({
+        amount_a2g: bar.dataset.a2g,
+        amount_g2a: bar.dataset.g2a,
+        unit:       bar.dataset.unit,
+        port_gbps:  bar.dataset.port,
+        link_count: bar.dataset.links,
+        colo_per_link_monthly: bar.dataset.colo,
+        vpn_tunnels: bar.dataset.vpn,
+      });
+      const original = btn.textContent;
+      btn.disabled = true; btn.textContent = '...';
+      try {
+        const res = await fetch('/export/' + fmt, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body,
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const blob = await res.blob();
+        const cd = res.headers.get('content-disposition') || '';
+        const match = cd.match(/filename="([^"]+)"/);
+        const filename = match ? match[1] : 'interconnect-calc.' + fmt;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = filename;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      } catch (e) {
+        alert('Export failed: ' + e.message);
+      } finally {
+        btn.disabled = false; btn.textContent = original;
+      }
+    }
+  </script>
+</head>
+<body>
+<header>
+  <h1>Interconnect Cost Calculator <span class="badge">v2 · HA VPN + Time</span></h1>
+  <p class="sub">AWS Seoul (ap-northeast-2) ↔ GCP Seoul (asia-northeast3) · 3-option comparison · List price · USD · Monthly</p>
+</header>
+
+<main class="grid">
+  <section class="card">
+    <h2>Inputs</h2>
+    <form hx-post="/calculate" hx-target="#result"
+          hx-trigger="submit, change from:input, input delay:400ms from:input[type=number]"
+          oninput="fmtTotal(this)">
+
+      <div class="field">
+        <label class="field-label">Data volume unit</label>
+        <div class="pills" role="radiogroup" aria-label="Data volume unit">
+          <label class="pill"><input type="radio" name="unit" value="TB"  checked> TB</label>
+          <label class="pill"><input type="radio" name="unit" value="TiB"> TiB</label>
+          <label class="pill"><input type="radio" name="unit" value="PB" > PB</label>
+          <label class="pill"><input type="radio" name="unit" value="PiB"> PiB</label>
+        </div>
+        <p class="fieldhint">TB/PB decimal · TiB/PiB binary · AWS bills per decimal GB, GCP per binary GiB.</p>
+      </div>
+
+      <div class="field-row">
+        <label class="field">
+          <span class="field-label">AWS → GCP / month</span>
+          <input type="number" name="amount_a2g" value="50" min="0" step="any" inputmode="decimal" required>
+        </label>
+        <label class="field">
+          <span class="field-label">GCP → AWS / month</span>
+          <input type="number" name="amount_g2a" value="0" min="0" step="any" inputmode="decimal" required>
+        </label>
+      </div>
+
+      <p class="totalcaption">Total: <strong id="totalsum">50 TB (50.00 TB · 45.47 TiB)</strong></p>
+
+      <h3 class="section-hdr">Options A & B (Interconnect)</h3>
+      <div class="field">
+        <label class="field-label">Port speed</label>
+        <div class="pills" role="radiogroup" aria-label="Port speed">
+          <label class="pill"><input type="radio" name="port_gbps" value="10" checked> 10 Gbps</label>
+          <label class="pill"><input type="radio" name="port_gbps" value="100"> 100 Gbps</label>
+        </div>
+      </div>
+
+      <label class="field">
+        <span class="field-label">Link count (Active/Active)</span>
+        <input type="number" name="link_count" value="2" min="1" max="16" step="1" required>
+        <span class="fieldhint">Minimum 2 for HA (99.99% SLA). Single link = SPOF.</span>
+      </label>
+
+      <label class="field">
+        <span class="field-label">Colo cross-connect USD/mo per link <span class="opt">(Option A only)</span></span>
+        <input type="number" name="colo_per_link_monthly" value="0" min="0" step="any" inputmode="decimal">
+        <span class="fieldhint">Varies by facility (KINX Gasan, LG U+ Pyeongchon, Sejong IX).</span>
+      </label>
+
+      <h3 class="section-hdr">Option C (HA VPN)</h3>
+      <div class="field">
+        <label class="field-label">VPN tunnels</label>
+        <div class="pills" role="radiogroup" aria-label="VPN tunnels">
+          <label class="pill"><input type="radio" name="vpn_tunnels" value="2" checked> 2 (~1.25 Gbps)</label>
+          <label class="pill"><input type="radio" name="vpn_tunnels" value="4"> 4 (~5 Gbps, TGW ECMP)</label>
+          <label class="pill"><input type="radio" name="vpn_tunnels" value="8"> 8 (~10 Gbps, TGW ECMP)</label>
+          <label class="pill"><input type="radio" name="vpn_tunnels" value="16"> 16 (~20 Gbps, TGW ECMP)</label>
+        </div>
+        <p class="fieldhint">
+          Per-tunnel effective ~1.25 Gbps (single flow). &gt;2 tunnels uses AWS Transit Gateway ECMP —
+          adds TGW attachment ($0.05/hr) + data processing ($0.02/GB).
+        </p>
+      </div>
+
+      <button type="submit" class="primary">Calculate</button>
+    </form>
+  </section>
+
+  <section class="card" id="result-wrap">
+    <h2>Results</h2>
+    <div id="result">
+      <p class="fieldhint">Fill the form and submit to see the 3-option comparison with transfer time.</p>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <details>
+    <summary>Reference — options, pricing, assumptions, sources</summary>
+
+    <h3>The three options</h3>
+    <dl class="glossary">
+      <dt>Option A — AWS DX + GCP Dedicated Interconnect</dt>
+      <dd>Customer-owned router in a colo (KINX Gasan / LG U+ Pyeongchon) with cross-connects to both AWS DX and GCP DI. Full control, highest CapEx (router + colo).</dd>
+      <dt>Option B — Cross-Cloud Interconnect (CCI)</dt>
+      <dd>Google-managed direct link from GCP to AWS DX location. No customer colo needed. GCP CCI port priced higher than DI ($5.60/hr vs $2.328/hr at 10G) but zero hardware/colo footprint.</dd>
+      <dt>Option C — HA VPN</dt>
+      <dd>IPsec tunnels over public internet. Cheapest fixed cost. Bandwidth scales via multiple tunnels + AWS TGW ECMP. Per-tunnel effective ~1.25 Gbps single-flow. Best for small/medium volumes or immediate deployment.</dd>
+    </dl>
+
+    <h3>Transfer time formula</h3>
+    <p><code>time (hours) = data_TB × 8000 / effective_Gbps / 3600</code></p>
+    <ul>
+      <li>Interconnect (A/B): effective = <code>port_Gbps × link_count × 0.85</code> (85% efficiency)</li>
+      <li>VPN (C): effective = <code>tunnel_count × 1.25 Gbps</code> (conservative per-tunnel)</li>
+    </ul>
+
+    <h3>Key list prices (2026-08)</h3>
+    <table class="unittable">
+      <thead><tr><th>Component</th><th>Rate</th></tr></thead>
+      <tbody>
+        <tr><td>AWS DX Dedicated port 10G</td><td>$2.25/hr</td></tr>
+        <tr><td>AWS DX Dedicated port 100G</td><td>$22.50/hr</td></tr>
+        <tr><td>AWS DX Local DTO (Seoul→Seoul)</td><td>$0.041/GB</td></tr>
+        <tr><td>AWS S2S VPN connection</td><td>$0.05/hr</td></tr>
+        <tr><td>AWS TGW attachment</td><td>$0.05/hr</td></tr>
+        <tr><td>AWS TGW data processing</td><td>$0.02/GB</td></tr>
+        <tr><td>AWS Internet Egress Seoul (tier 1, first 10 TB)</td><td>$0.126/GB</td></tr>
+        <tr><td>GCP DI port 10G</td><td>$2.328/hr</td></tr>
+        <tr><td>GCP CCI port 10G</td><td>$5.60/hr</td></tr>
+        <tr><td>GCP VLAN attachment (≤10G)</td><td>$0.10/hr</td></tr>
+        <tr><td>GCP DI/CCI egress Seoul→Asia</td><td>$0.042/GiB</td></tr>
+        <tr><td>GCP HA VPN tunnel (Seoul)</td><td>$0.075/hr</td></tr>
+        <tr><td>GCP Internet egress Seoul→S.Korea (tier 1, first 1 TiB)</td><td>$0.19/GiB</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Assumptions</h3>
+    <ul>
+      <li>List price only — no EDP/PPA (AWS), no CUD (GCP), no promotional credits.</li>
+      <li>Both Option A and Option B use AWS Direct Connect <strong>Dedicated</strong> port.</li>
+      <li>Option A does <strong>not</strong> include customer router hardware, colo rack/power/cooling, remote hands.</li>
+      <li>Option C effective per-tunnel throughput 1.25 Gbps is a conservative single-flow limit. Real aggregate depends on parallel streams (Storage Transfer Service etc.).</li>
+      <li>AWS DTO applies for A→G direction regardless of port ownership.</li>
+      <li>Volumes convert internally to bytes, then billed per each provider's granularity (AWS decimal GB, GCP binary GiB).</li>
+    </ul>
+
+    <h3>Sources</h3>
+    <p>
+      <a href="{{ sources.aws_dx }}" target="_blank" rel="noopener">AWS DX pricing</a> ·
+      <a href="{{ sources.aws_vpn }}" target="_blank" rel="noopener">AWS VPN pricing</a> ·
+      <a href="{{ sources.aws_tgw }}" target="_blank" rel="noopener">AWS TGW pricing</a> ·
+      <a href="{{ sources.aws_ec2_dt }}" target="_blank" rel="noopener">AWS EC2 data transfer</a> ·
+      <a href="{{ sources.gcp_interconnect }}" target="_blank" rel="noopener">GCP Interconnect pricing</a> ·
+      <a href="{{ sources.gcp_cci_overview }}" target="_blank" rel="noopener">GCP CCI overview</a> ·
+      <a href="{{ sources.gcp_vpc_pricing }}" target="_blank" rel="noopener">GCP VPC network pricing</a>
+    </p>
+  </details>
+</footer>
+</body>
+</html>
