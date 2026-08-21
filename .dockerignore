@@ -3,4 +3,4 @@ __pycache__
 .venv
 .git
 .gitignore
-*.md
+!USER_GUIDE.md

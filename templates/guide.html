@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Architecture & User Guide — AWS ↔ GCP Interconnect</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <style>
+    .guide-container {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 24px 32px 48px;
+    }
+    .nav-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--line);
+    }
+    .nav-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .nav-link:hover {
+      text-decoration: underline;
+    }
+    .guide-content {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 32px 40px;
+      line-height: 1.7;
+    }
+    .guide-content h1 {
+      font-size: 24px;
+      margin-top: 0;
+      margin-bottom: 16px;
+      color: var(--fg);
+      border-bottom: 2px solid var(--line);
+      padding-bottom: 12px;
+    }
+    .guide-content h2 {
+      font-size: 18px;
+      margin-top: 32px;
+      margin-bottom: 12px;
+      color: var(--fg);
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 6px;
+    }
+    .guide-content h3 {
+      font-size: 15px;
+      margin-top: 24px;
+      margin-bottom: 8px;
+      color: var(--accent);
+    }
+    .guide-content pre {
+      background: #1e293b;
+      color: #f8fafc;
+      padding: 16px;
+      border-radius: 6px;
+      overflow-x: auto;
+      font-size: 13px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    .guide-content code {
+      background: var(--accent-soft);
+      color: var(--accent);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 13px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    .guide-content pre code {
+      background: transparent;
+      color: inherit;
+      padding: 0;
+    }
+    .guide-content table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0;
+      font-size: 13px;
+    }
+    .guide-content th, .guide-content td {
+      border: 1px solid var(--line);
+      padding: 8px 12px;
+      text-align: left;
+    }
+    .guide-content th {
+      background: #f9fafb;
+      font-weight: 600;
+      color: var(--fg);
+    }
+    .guide-content hr {
+      border: 0;
+      border-top: 1px solid var(--line);
+      margin: 24px 0;
+    }
+    .guide-content ul, .guide-content ol {
+      padding-left: 24px;
+    }
+    .guide-content li {
+      margin-bottom: 6px;
+    }
+    .guide-content blockquote {
+      border-left: 4px solid var(--accent);
+      margin: 16px 0;
+      padding: 8px 16px;
+      background: var(--accent-soft);
+      color: var(--fg);
+    }
+    @media (max-width: 600px) {
+      .guide-container {
+        padding: 16px;
+      }
+      .guide-content {
+        padding: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+<header>
+  <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+    <div>
+      <h1>{{ t.title }} <span class="badge">Documentation</span></h1>
+      <p class="sub">AWS Seoul (ap-northeast-2) ↔ GCP Seoul (asia-northeast3) Architecture Guide</p>
+    </div>
+    <div style="display:flex; align-items:center; gap:10px;">
+      <div class="lang-switch" role="group" aria-label="Language selector">
+        <a href="/guide?lang=en" class="lang-btn {% if lang == 'en' %}active{% endif %}" style="text-decoration:none;">English</a>
+        <a href="/guide?lang=ko" class="lang-btn {% if lang == 'ko' %}active{% endif %}" style="text-decoration:none;">한국어</a>
+      </div>
+      <a href="/?lang={{ lang }}" class="nav-link" style="padding: 8px 14px; background: var(--accent); color: white; border-radius: 6px; text-decoration: none;">
+        ← {% if lang == 'ko' %}계산기로 돌아가기{% else %}Back to Calculator{% endif %}
+      </a>
+    </div>
+  </div>
+</header>
+
+<div class="guide-container">
+  <div class="nav-bar">
+    <a href="/?lang={{ lang }}" class="nav-link">← {% if lang == 'ko' %}계산기로 돌아가기{% else %}Back to Calculator{% endif %}</a>
+    <span class="fieldhint">{{ t.prices_as_of }} {{ pricing_as_of }}</span>
+  </div>
+
+  <article class="guide-content">
+    {{ body_html|safe }}
+  </article>
+
+  <div style="margin-top: 24px; text-align: center;">
+    <a href="/?lang={{ lang }}" class="primary" style="display:inline-block; text-decoration:none; padding: 10px 24px; border-radius: 6px; background: var(--accent); color: white; font-weight: 600;">
+      {% if lang == 'ko' %}인터랙티브 계산기 열기{% else %}Launch Interactive Calculator{% endif %}
+    </a>
+  </div>
+</div>
+</body>
+</html>
