@@ -33,13 +33,15 @@ When architecting hybrid or multi-cloud connectivity between AWS and GCP in Seou
 * **Bandwidth:** 10 Gbps or 100 Gbps per link (up to 16 links in a Link Aggregation Group).
 * **Latency:** Sub-millisecond (< 1.5 ms RTT between VPCs).
 * **SLA:** 99.99% with dual-location / dual-link architecture.
-* **Cost Components:**
-  * AWS Direct Connect Dedicated Port: $2.25/hr (10G) or $22.50/hr (100G) per link.
-  * GCP Dedicated Interconnect Port: $2.328/hr (10G) or $23.28/hr (100G) per link.
-  * GCP VLAN Attachment: $0.10/hr (≤10G) or $1.00/hr (100G) per link.
-  * Colocation Facility Cross-Connects: ~$200 – $600/month per physical fiber drop.
-  * AWS DTO (Seoul Direct Connect egress): $0.041 per decimal GB.
-  * GCP Interconnect Egress (Asia to Asia): $0.042 per binary GiB.
+* **Cost Breakdown:**
+  * **1. Fixed Infrastructure Costs (Hourly Port & Facility Fees):**
+    * **AWS Direct Connect Dedicated Port:** `$2.25/hr` (10G) or `$22.50/hr` (100G) per link
+    * **GCP Dedicated Interconnect Port:** `$2.328/hr` (10G) or `$23.28/hr` (100G) per link
+    * **GCP VLAN Attachment:** `$0.10/hr` (≤10G) or `$1.00/hr` (100G) per link
+    * **Colocation Cross-Connects:** `~$200 – $600/month` per physical fiber drop (facility dependent)
+  * **2. Variable Data Transfer Out (Egress Fees):**
+    * **AWS → GCP (Direct Connect Local DTO):** `$0.041 per decimal GB` (Seoul DX discounted rate)
+    * **GCP → AWS (Dedicated Interconnect Egress):** `$0.042 per binary GiB` (Asia-to-Asia Interconnect rate)
 * **Pros:** Complete control over routing hardware, custom BGP policies, hardware encryption (MACsec), maximum sustained wire-speed throughput.
 * **Cons:** High CapEx and OpEx (router hardware lifecycle, rack power/cooling, remote hands, long provisioning lead time of 4–12 weeks).
 
@@ -51,12 +53,15 @@ When architecting hybrid or multi-cloud connectivity between AWS and GCP in Seou
 * **Bandwidth:** 10 Gbps or 100 Gbps per link.
 * **Latency:** Sub-millisecond direct interconnect latency (~1.5–2.0 ms RTT).
 * **SLA:** 99.99% SLA with 4 links across 2 metros / edge locations; 99.9% with 2 links.
-* **Cost Components:**
-  * AWS Direct Connect Dedicated Port: $2.25/hr (10G) or $22.50/hr (100G) per link.
-  * GCP Cross-Cloud Interconnect Port: $5.60/hr (10G) or $30.00/hr (100G) per link.
-  * GCP VLAN Attachment: $0.10/hr (≤10G) or $1.00/hr (100G) per link.
-  * Egress Fees: AWS DTO $0.041/GB, GCP Interconnect Egress $0.042/GiB.
-  * Colocation Fee: **$0** (No customer colo or router hardware required).
+* **Cost Breakdown:**
+  * **1. Fixed Infrastructure Costs (Hourly Port & Facility Fees):**
+    * **AWS Direct Connect Dedicated Port:** `$2.25/hr` (10G) or `$22.50/hr` (100G) per link
+    * **GCP Cross-Cloud Interconnect Port:** `$5.60/hr` (10G) or `$30.00/hr` (100G) per link
+    * **GCP VLAN Attachment:** `$0.10/hr` (≤10G) or `$1.00/hr` (100G) per link
+    * **Colocation / Hardware Costs:** **`$0`** (No customer colo or router hardware required)
+  * **2. Variable Data Transfer Out (Egress Fees):**
+    * **AWS → GCP (Direct Connect Local DTO):** `$0.041 per decimal GB`
+    * **GCP → AWS (Cross-Cloud Interconnect Egress):** `$0.042 per binary GiB`
 * **Pros:** Zero hardware/colo footprint, fast provisioning (days instead of months), managed physical transport SLA, seamless integration with Cloud Router.
 * **Cons:** Higher GCP hourly port charge compared to Dedicated Interconnect ($5.60/hr vs $2.328/hr at 10G).
 
@@ -68,14 +73,22 @@ When architecting hybrid or multi-cloud connectivity between AWS and GCP in Seou
 * **Bandwidth:** ~1.25 Gbps per tunnel (single TCP/UDP flow). Scalable up to ~20 Gbps aggregate throughput with 16 tunnels and multiple parallel flows.
 * **Latency:** Dependent on public internet routing (~3–8 ms RTT in Seoul).
 * **SLA:** 99.99% service availability for GCP HA VPN and AWS Site-to-Site VPN.
-* **Cost Components:**
-  * GCP HA VPN Tunnel: $0.075/hr per tunnel.
-  * AWS Site-to-Site VPN Connection: $0.05/hr per connection (2 tunnels per connection).
-  * AWS Transit Gateway Attachment (>2 tunnels): $0.05/hr per connection.
-  * AWS Transit Gateway Data Processing (>2 tunnels): $0.02 per decimal GB.
-  * Internet Egress Fees (Tiered):
-    * AWS Internet Egress (Seoul): $0.126/GB (first 10 TB), $0.122/GB (next 40 TB), $0.117/GB (next 100 TB), $0.108/GB (>150 TB).
-    * GCP Internet Egress (Seoul to Korea): $0.19/GiB (first 1 TiB), $0.18/GiB (next 9 TiB), $0.15/GiB (>10 TiB).
+* **Cost Breakdown:**
+  * **1. Fixed Infrastructure Costs (Hourly Gateway & Attachment Fees):**
+    * **GCP HA VPN Tunnel:** `$0.075/hr` per tunnel (Seoul region)
+    * **AWS Site-to-Site VPN Connection:** `$0.05/hr` per connection (2 tunnels per connection)
+    * **AWS Transit Gateway Attachment (>2 tunnels):** `$0.05/hr` per connection
+  * **2. Variable Data Processing & Public Internet Egress (Tiered):**
+    * **AWS Transit Gateway Data Processing (>2 tunnels):** `$0.02 per decimal GB`
+    * **AWS → GCP Public Internet Egress (Tiered):**
+      * 0 – 10 TB: `$0.126 / GB`
+      * 10 – 50 TB: `$0.122 / GB`
+      * 50 – 150 TB: `$0.117 / GB`
+      * >150 TB: `$0.108 / GB`
+    * **GCP → AWS Public Internet Egress (Tiered):**
+      * 0 – 1 TiB: `$0.19 / GiB`
+      * 1 – 10 TiB: `$0.18 / GiB`
+      * >10 TiB: `$0.15 / GiB`
 * **Pros:** Instant provisioning via Infrastructure as Code (Terraform), lowest fixed infrastructure monthly cost, ideal for lightweight replication, dev/staging environments, or backup circuits.
 * **Cons:** High variable data transfer egress fees over public internet; performance subject to public internet jitter and single-flow throttling.
 

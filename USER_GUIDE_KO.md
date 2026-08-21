@@ -33,13 +33,15 @@ AWS 서울 리전과 GCP 서울 리전 간 엔터프라이즈 하이브리드/�
 * **대역폭 (Bandwidth):** 회선당 10 Gbps 또는 100 Gbps (Link Aggregation Group 구성 가능).
 * **지연시간 (Latency):** 1.5 ms 미만의 초저지연 (Sub-millisecond RTT).
 * **가용성 SLA:** 이중화 센터 / 이중 회선 구성 시 99.99% SLA 보장.
-* **비용 구성 요소:**
-  * AWS Direct Connect Dedicated Port: 회선당 $2.25/시간 (10G) 또는 $22.50/시간 (100G).
-  * GCP Dedicated Interconnect Port: 회선당 $2.328/시간 (10G) 또는 $23.28/시간 (100G).
-  * GCP VLAN Attachment: 회선당 $0.10/시간 (≤10G) 또는 $1.00/시간 (100G).
-  * Colocation Facility Cross-Connect 요금: 물리적 광케이블 인입당 약 $200 ~ $600/월.
-  * AWS DTO (Seoul Direct Connect egress): $0.041 per decimal GB.
-  * GCP Interconnect Egress (Asia to Asia): $0.042 per binary GiB.
+* **비용 구성 요소 (Cost Breakdown):**
+  * **1. 고정 인프라 요금 (Fixed Infrastructure / 시간당 과금):**
+    * **AWS Direct Connect Dedicated Port:** 회선당 `$2.25/시간` (10G) 또는 `$22.50/시간` (100G)
+    * **GCP Dedicated Interconnect Port:** 회선당 `$2.328/시간` (10G) 또는 `$23.28/시간` (100G)
+    * **GCP VLAN Attachment:** 회선당 `$0.10/시간` (≤10G) 또는 `$1.00/시간` (100G)
+    * **Colocation Cross-Connect (인입 광케이블):** 회선당 약 `$200 ~ $600/월` (코로케이션 시설별 상이)
+  * **2. 가변 데이터 전송 요금 (Data Transfer Out / Egress):**
+    * **AWS → GCP (Direct Connect Local DTO):** `$0.041 per decimal GB` (서울 DX 우대 단가)
+    * **GCP → AWS (Dedicated Interconnect Egress):** `$0.042 per binary GiB` (Asia to Asia Interconnect 단가)
 * **장점:** 자체 라우터를 통한 커스텀 BGP 정책, 하드웨어 암호화(MACsec), 최대 대역폭 제어 가능.
 * **단점:** 초기 하드웨어 투자비(CapEx) 및 상주 운영비(OpEx) 발생, 회선 개통에 4~12주의 긴 리드타임 소요.
 
@@ -51,12 +53,15 @@ AWS 서울 리전과 GCP 서울 리전 간 엔터프라이즈 하이브리드/�
 * **대역폭 (Bandwidth):** 회선당 10 Gbps 또는 100 Gbps.
 * **지연시간 (Latency):** 직접 물리 연결 기반 초저지연 (~1.5–2.0 ms RTT).
 * **가용성 SLA:** 2개 엣지 위치 분산 4개 회선 구성 시 99.99% SLA, 단일 위치 2개 회선 시 99.9% SLA.
-* **비용 구성 요소:**
-  * AWS Direct Connect Dedicated Port: 회선당 $2.25/시간 (10G) 또는 $22.50/시간 (100G).
-  * GCP Cross-Cloud Interconnect Port: 회선당 $5.60/시간 (10G) 또는 $30.00/시간 (100G).
-  * GCP VLAN Attachment: 회선당 $0.10/시간 (≤10G) 또는 $1.00/시간 (100G).
-  * Egress 요금: AWS DTO $0.041/GB, GCP Interconnect Egress $0.042/GiB.
-  * 코로케이션 / 라우터 비용: **$0 (완전 불필요)**.
+* **비용 구성 요소 (Cost Breakdown):**
+  * **1. 고정 인프라 요금 (Fixed Infrastructure / 시간당 과금):**
+    * **AWS Direct Connect Dedicated Port:** 회선당 `$2.25/시간` (10G) 또는 `$22.50/시간` (100G)
+    * **GCP Cross-Cloud Interconnect Port:** 회선당 `$5.60/시간` (10G) 또는 `$30.00/시간` (100G)
+    * **GCP VLAN Attachment:** 회선당 `$0.10/시간` (≤10G) 또는 `$1.00/시간` (100G)
+    * **코로케이션 및 라우터 비용:** **`$0`** (Google 관리형 회선으로 상면/하드웨어 불필요)
+  * **2. 가변 데이터 전송 요금 (Data Transfer Out / Egress):**
+    * **AWS → GCP (Direct Connect Local DTO):** `$0.041 per decimal GB`
+    * **GCP → AWS (Cross-Cloud Interconnect Egress):** `$0.042 per binary GiB`
 * **장점:** 제로 하드웨어/코로케이션, 수일 내 빠른 개통, Google 관리형 전송망 SLA, Cloud Router와의 완벽한 소프트웨어 정의 통합.
 * **단점:** Dedicated Interconnect 대비 GCP 시간당 포트 단가가 높음 ($5.60/hr vs $2.328/hr at 10G).
 
@@ -68,14 +73,22 @@ AWS 서울 리전과 GCP 서울 리전 간 엔터프라이즈 하이브리드/�
 * **대역폭 (Bandwidth):** 터널당 약 1.25 Gbps (단일 플로우 기준). 16개 터널 병렬 플로우 시 최대 ~20 Gbps 결합 대역폭 지원.
 * **지연시간 (Latency):** 공용 인터넷 라우팅 경로에 따라 변동 (~3–8 ms RTT).
 * **가용성 SLA:** GCP HA VPN 및 AWS Site-to-Site VPN 각각 99.99% 서비스 가용성 제공.
-* **비용 구성 요소:**
-  * GCP HA VPN Tunnel: 터널당 $0.075/시간.
-  * AWS Site-to-Site VPN Connection: 연결당 $0.05/시간 (연결당 2개 터널 포함).
-  * AWS Transit Gateway Attachment (>2 터널 시): 연결당 $0.05/시간.
-  * AWS Transit Gateway Data Processing (>2 터널 시): $0.02 per decimal GB.
-  * 인터넷 Egress 종량 요금 (Tiered):
-    * AWS Internet Egress (Seoul): $0.126/GB (초기 10 TB), $0.122/GB (다음 40 TB), $0.117/GB (다음 100 TB), $0.108/GB (150 TB 초과).
-    * GCP Internet Egress (Seoul to Korea): $0.19/GiB (초기 1 TiB), $0.18/GiB (다음 9 TiB), $0.15/GiB (10 TiB 초과).
+* **비용 구성 요소 (Cost Breakdown):**
+  * **1. 고정 인프라 요금 (Fixed Infrastructure / 시간당 과금):**
+    * **GCP HA VPN Tunnel:** 터널당 `$0.075/시간` (서울 리전)
+    * **AWS Site-to-Site VPN Connection:** 연결당 `$0.05/시간` (연결 1개당 2개 터널 포함)
+    * **AWS Transit Gateway Attachment (>2개 터널 시):** 연결당 `$0.05/시간`
+  * **2. 가변 데이터 전송 및 처리 요금 (Data Processing & Internet Egress):**
+    * **AWS Transit Gateway Data Processing (>2개 터널 시):** `$0.02 per decimal GB`
+    * **AWS → GCP 인터넷 Egress (구간별 할인 요율):**
+      * 0 ~ 10 TB: `$0.126 / GB`
+      * 10 ~ 50 TB: `$0.122 / GB`
+      * 50 ~ 150 TB: `$0.117 / GB`
+      * 150 TB 초과: `$0.108 / GB`
+    * **GCP → AWS 인터넷 Egress (구간별 할인 요율):**
+      * 0 ~ 1 TiB: `$0.19 / GiB`
+      * 1 ~ 10 TiB: `$0.18 / GiB`
+      * 10 TiB 초과: `$0.15 / GiB`
 * **장점:** Terraform 등 IaC를 통한 즉각적인 프로비저닝(수 분 내), 최소 고정 인프라 비용, 개발/스테이징 환경이나 백업 회선으로 최적.
 * **단점:** 대규모 트래픽 시 공용 인터넷 Egress 요금 부담 증가, 인터넷 경로 품질에 따른 지연 변동성(Jitter) 발생 가능.
 
