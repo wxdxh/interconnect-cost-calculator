@@ -90,7 +90,9 @@
       if (p.has('links')) form.elements.link_count.value = p.get('links');
       if (p.has('colo')) form.elements.colo_per_link_monthly.value = p.get('colo');
       if (p.has('vpn') && form.elements.vpn_tunnels) {
-        const vRadio = form.querySelector(`input[name="vpn_tunnels"][value="${p.get('vpn')}"]`);
+        let vVal = p.get('vpn');
+        if (vVal === '2') vVal = '2_vgw';
+        const vRadio = form.querySelector(`input[name="vpn_tunnels"][value="${vVal}"]`);
         if (vRadio) vRadio.checked = true;
       }
       if (p.has('be') && form.elements.show_breakeven) {
@@ -231,10 +233,11 @@
           <div class="field">
             <label class="field-label">{{ t.vpn_tunnels_label }} (Option C)</label>
             <div class="pills" role="radiogroup" aria-label="VPN tunnels">
-              <label class="pill"><input type="radio" name="vpn_tunnels" value="2" checked> 2 (~1.25 Gbps)</label>
-              <label class="pill"><input type="radio" name="vpn_tunnels" value="4"> 4 (~5 Gbps, TGW)</label>
-              <label class="pill"><input type="radio" name="vpn_tunnels" value="8"> 8 (~10 Gbps, TGW)</label>
-              <label class="pill"><input type="radio" name="vpn_tunnels" value="16"> 16 (~20 Gbps, TGW)</label>
+              <label class="pill"><input type="radio" name="vpn_tunnels" value="2_vgw" checked> 2 (VGW · 1.25G)</label>
+              <label class="pill"><input type="radio" name="vpn_tunnels" value="2_tgw"> 2 (TGW · 2.5G)</label>
+              <label class="pill"><input type="radio" name="vpn_tunnels" value="4"> 4 (TGW · 5G)</label>
+              <label class="pill"><input type="radio" name="vpn_tunnels" value="8"> 8 (TGW · 10G)</label>
+              <label class="pill"><input type="radio" name="vpn_tunnels" value="16"> 16 (TGW · 20G)</label>
             </div>
             <p class="fieldhint">{{ t.vpn_hint }}</p>
           </div>

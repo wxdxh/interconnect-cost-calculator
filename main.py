@@ -105,7 +105,7 @@ def calculate(
     port_gbps: Literal[10, 100] | int = 10,
     link_count: int = 2,
     colo_per_link_monthly: float = 0.0,
-    vpn_tunnels: int = 2,
+    vpn_tunnels: int | str = "2_vgw",
     lang: str = "en",
     show_breakeven: bool = False,
 ) -> dict:
@@ -123,7 +123,6 @@ def calculate(
     amount_a2g = max(0.0, float(amount_a2g))
     amount_g2a = max(0.0, float(amount_g2a))
     link_count = max(1, int(link_count))
-    vpn_tunnels = max(2, int(vpn_tunnels))
     colo_per_link_monthly = max(0.0, float(colo_per_link_monthly))
 
     port_gbps_val = 100 if int(port_gbps) == 100 else 10
@@ -168,11 +167,30 @@ def calculate(
     b_time_g2a_h = _transfer_time_hours(bytes_g2a, b_bw_gbps)
     b_time_total_h = _transfer_time_hours(bytes_total, b_bw_gbps)
 
-    # --- Option C: HA VPN (scales via TGW ECMP) ---
-    tunnels = vpn_tunnels
+    # --- Option C: HA VPN (VGW Active/Standby vs TGW ECMP) ---
+    vpn_str = str(vpn_tunnels).strip().lower()
+    if vpn_str in ("2_vgw", "2_vgw_active_standby", "2-vgw", "2"):
+        tunnels = 2
+        uses_tgw = False
+        active_tunnels = 1
+        vpn_val_code = "2_vgw"
+    elif vpn_str in ("2_tgw", "2_tgw_ecmp", "2-tgw"):
+        tunnels = 2
+        uses_tgw = True
+        active_tunnels = 2
+        vpn_val_code = "2_tgw"
+    else:
+        try:
+            num = int(vpn_str)
+        except ValueError:
+            num = 2
+        tunnels = max(2, num)
+        uses_tgw = True
+        active_tunnels = tunnels
+        vpn_val_code = str(tunnels)
+
     # Each AWS Site-to-Site VPN connection has 2 tunnels
     aws_vpn_connections = max(1, tunnels // 2)
-    uses_tgw = tunnels > 2
 
     c_gcp_tunnel = vpn["gcp_vpn_tunnel_hourly_seoul"] * tunnels * hours
     c_aws_vpn = vpn["aws_vpn_connection_hourly"] * aws_vpn_connections * hours
@@ -189,7 +207,7 @@ def calculate(
     # GCP Internet egress (tiered) for G→A direction (Seoul → South Korea)
     c_gcp_internet_egress = _tiered_cost_gib(gib_g2a, vpn["gcp_internet_egress_seoul_to_korea_tiers_per_gib"])
     c_total = c_infra + c_aws_internet_egress + c_aws_tgw_data + c_gcp_internet_egress
-    c_bw_gbps = tunnels * vpn["per_tunnel_effective_gbps"]
+    c_bw_gbps = active_tunnels * vpn["per_tunnel_effective_gbps"]
     c_time_a2g_h = _transfer_time_hours(bytes_a2g, c_bw_gbps)
     c_time_g2a_h = _transfer_time_hours(bytes_g2a, c_bw_gbps)
     c_time_total_h = _transfer_time_hours(bytes_total, c_bw_gbps)
@@ -302,8 +320,10 @@ def calculate(
             "link_count": link_count,
             "colo_per_link_monthly": colo_per_link_monthly,
             "vpn_tunnels": tunnels,
+            "vpn_val_code": vpn_val_code,
             "aws_vpn_connections": aws_vpn_connections,
             "uses_tgw": uses_tgw,
+            "active_tunnels": active_tunnels,
             "pct_a2g": pct_a2g,
             "pct_g2a": pct_g2a,
             "total_tb": bytes_total / (10 ** 12),
@@ -367,7 +387,9 @@ def calculate(
             "egress_g2a_pct": b_eg_g2a_pct,
         },
         "option_c": {
-            "label": f"HA VPN ({tunnels} tunnels{' + TGW ECMP' if uses_tgw else ''})",
+            "label": (
+                f"HA VPN ({tunnels} tunnels · {'TGW ECMP' if uses_tgw else 'VGW Active/Standby'})"
+            ),
             "infra": {
                 "subtotal": c_infra,
                 "gcp_tunnel": c_gcp_tunnel,
@@ -386,17 +408,34 @@ def calculate(
             "total": c_total,
             "per_gb": per_gb_c,
             "bw_gbps": c_bw_gbps,
-            "bw_nominal_gbps": tunnels * 1.25,
+            "bw_nominal_gbps": active_tunnels * 1.25,
             "bw_desc": (
-                f"{c_bw_gbps:.1f} Gbps 실효 ({tunnels}개 터널 × 1.25G)"
+                (
+                    f"1.25 Gbps 실효 (VGW Active/Standby · 1터널 활성)"
+                    if (tunnels == 2 and not uses_tgw)
+                    else (
+                        f"2.5 Gbps 실효 (2개 터널 TGW ECMP × 1.25G)"
+                        if (tunnels == 2 and uses_tgw)
+                        else f"{c_bw_gbps:.1f} Gbps 실효 ({tunnels}개 터널 TGW ECMP × 1.25G)"
+                    )
+                )
                 if lang_code == "ko"
-                else f"{c_bw_gbps:.1f} Gbps eff. ({tunnels} tunnels × 1.25G)"
+                else (
+                    f"1.25 Gbps eff. (VGW Active/Standby · 1 tunnel active)"
+                    if (tunnels == 2 and not uses_tgw)
+                    else (
+                        f"2.5 Gbps eff. (2 tunnels TGW ECMP × 1.25G)"
+                        if (tunnels == 2 and uses_tgw)
+                        else f"{c_bw_gbps:.1f} Gbps eff. ({tunnels} tunnels TGW ECMP × 1.25G)"
+                    )
+                )
             ),
             "time_h": c_time_a2g_h,
             "time_a2g_h": c_time_a2g_h,
             "time_g2a_h": c_time_g2a_h,
             "time_total_h": c_time_total_h,
             "uses_tgw": uses_tgw,
+            "active_tunnels": active_tunnels,
             "infra_pct": c_infra_pct,
             "egress_a2g_pct": c_eg_a2g_pct,
             "egress_g2a_pct": c_eg_g2a_pct,
@@ -448,7 +487,7 @@ async def calc(
     port_gbps: int = Form(10),
     link_count: int = Form(2),
     colo_per_link_monthly: float = Form(0.0),
-    vpn_tunnels: int = Form(2),
+    vpn_tunnels: str = Form("2_vgw"),
     lang: str = Form("en"),
     show_breakeven: Optional[str] = Form(None),
 ):
@@ -605,7 +644,7 @@ def _parse_export_inputs(
     port_gbps: int,
     link_count: int,
     colo_per_link_monthly: float,
-    vpn_tunnels: int,
+    vpn_tunnels: str,
     lang: str = "en",
 ) -> dict:
     return calculate(
@@ -628,7 +667,7 @@ async def export_csv(
     port_gbps: int = Form(10),
     link_count: int = Form(2),
     colo_per_link_monthly: float = Form(0.0),
-    vpn_tunnels: int = Form(2),
+    vpn_tunnels: str = Form("2_vgw"),
     lang: str = Form("en"),
 ):
     ctx = _parse_export_inputs(
@@ -651,7 +690,7 @@ async def export_md(
     port_gbps: int = Form(10),
     link_count: int = Form(2),
     colo_per_link_monthly: float = Form(0.0),
-    vpn_tunnels: int = Form(2),
+    vpn_tunnels: str = Form("2_vgw"),
     lang: str = Form("en"),
 ):
     ctx = _parse_export_inputs(

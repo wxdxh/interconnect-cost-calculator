@@ -67,19 +67,23 @@ AWS 서울 리전과 GCP 서울 리전 간 엔터프라이즈 하이브리드/�
 
 ---
 
-### Option C: High Availability (HA) VPN with AWS Transit Gateway ECMP
+### Option C: High Availability (HA) VPN (AWS VGW vs AWS Transit Gateway ECMP)
 
-* **아키텍처 개요:** GCP HA VPN 게이트웨이와 AWS Site-to-Site VPN (또는 AWS Transit Gateway) 간에 공용 인터넷을 통해 이중 IPsec 터널을 생성합니다. 2개 터널을 초과하는 대규모 트래픽(4, 8, 16개 터널) 구성 시 AWS Transit Gateway에서 Equal-Cost Multi-Path (ECMP) 라우팅을 활성화하여 터널 대역폭을 결합합니다.
-* **대역폭 (Bandwidth):** 터널당 약 1.25 Gbps (단일 플로우 기준). 16개 터널 병렬 플로우 시 최대 ~20 Gbps 결합 대역폭 지원.
+* **아키텍처 개요:** GCP HA VPN 게이트웨이와 AWS Site-to-Site VPN 간에 공용 인터넷을 통해 이중 IPsec 터널을 생성합니다.
+  * **기본 AWS VGW (Virtual Private Gateway) 모드:** AWS 기본 VGW는 BGP ECMP를 지원하지 않아 **2개 터널이 Active/Standby로 동작**하며, 실효 대역폭은 단일 터널 수준인 **~1.25 Gbps**로 제한됩니다 (TGW 요금 없음).
+  * **AWS Transit Gateway (TGW ECMP) 모드:** 2개 터널을 **Active/Active(~2.5 Gbps)**로 결합하거나 4, 8, 16개 터널로 확장하려면 **AWS Transit Gateway (TGW)에서 ECMP를 활성화**해야 하며, TGW Attachment 및 Data Processing 요금이 추가됩니다.
+* **대역폭 (Bandwidth):** 
+  * VGW (2개 터널): ~1.25 Gbps (Active/Standby, 1개 활성)
+  * TGW ECMP: 2개 터널 ~2.5 Gbps, 4개 ~5 Gbps, 8개 ~10 Gbps, 16개 최대 ~20 Gbps 결합 대역폭
 * **지연시간 (Latency):** 공용 인터넷 라우팅 경로에 따라 변동 (~3–8 ms RTT).
 * **가용성 SLA:** GCP HA VPN 및 AWS Site-to-Site VPN 각각 99.99% 서비스 가용성 제공.
 * **비용 구성 요소 (Cost Breakdown):**
   * **1. 고정 인프라 요금 (Fixed Infrastructure / 시간당 과금):**
     * **GCP HA VPN Tunnel:** 터널당 `$0.075/시간` (서울 리전)
     * **AWS Site-to-Site VPN Connection:** 연결당 `$0.05/시간` (연결 1개당 2개 터널 포함)
-    * **AWS Transit Gateway Attachment (>2개 터널 시):** 연결당 `$0.05/시간`
+    * **AWS Transit Gateway Attachment (TGW ECMP 선택 시):** 연결당 `$0.05/시간`
   * **2. 가변 데이터 전송 및 처리 요금 (Data Processing & Internet Egress):**
-    * **AWS Transit Gateway Data Processing (>2개 터널 시):** `$0.02 per decimal GB`
+    * **AWS Transit Gateway Data Processing (TGW ECMP 선택 시):** `$0.02 per decimal GB`
     * **AWS → GCP 인터넷 Egress (구간별 할인 요율):**
       * 0 ~ 10 TB: `$0.126 / GB`
       * 10 ~ 50 TB: `$0.122 / GB`

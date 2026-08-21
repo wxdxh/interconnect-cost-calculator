@@ -167,6 +167,35 @@ def test_calculate_tgw_ecmp_scaling():
     assert c["egress_a2g"]["aws_tgw_data"] == pytest.approx(400.0)
 
 
+def test_calculate_2_tunnels_vgw_vs_tgw_ecmp():
+    # Scenario 1: 2 tunnels with default VGW (Active/Standby, 1.25 Gbps)
+    res_vgw = calculate(
+        amount_a2g=10.0,
+        amount_g2a=5.0,
+        unit="TB",
+        vpn_tunnels="2_vgw",
+    )
+    c_vgw = res_vgw["option_c"]
+    assert c_vgw["uses_tgw"] is False
+    assert c_vgw["bw_gbps"] == pytest.approx(1.25)
+    assert c_vgw["infra"]["aws_tgw_attach"] == 0.0
+    assert c_vgw["egress_a2g"]["aws_tgw_data"] == 0.0
+
+    # Scenario 2: 2 tunnels with TGW ECMP (Active/Active, 2.5 Gbps)
+    res_tgw = calculate(
+        amount_a2g=10.0,
+        amount_g2a=5.0,
+        unit="TB",
+        vpn_tunnels="2_tgw",
+    )
+    c_tgw = res_tgw["option_c"]
+    assert c_tgw["uses_tgw"] is True
+    assert c_tgw["bw_gbps"] == pytest.approx(2.5)
+    assert c_tgw["infra"]["aws_tgw_attach"] == pytest.approx(0.05 * 1 * 730)
+    assert c_tgw["egress_a2g"]["aws_tgw_data"] == pytest.approx(10000.0 * 0.02)
+    assert c_tgw["total"] > c_vgw["total"]
+
+
 def test_calculate_extreme_tunnels():
     # 16 tunnels
     res = calculate(

@@ -67,19 +67,23 @@ When architecting hybrid or multi-cloud connectivity between AWS and GCP in Seou
 
 ---
 
-### Option C: High Availability (HA) VPN with AWS Transit Gateway ECMP
+### Option C: High Availability (HA) VPN (AWS VGW vs AWS Transit Gateway ECMP)
 
-* **Architecture:** Dual IPsec VPN tunnels established over the public internet between GCP HA VPN gateways and AWS Site-to-Site VPN or AWS Transit Gateway (TGW). When scaling beyond 2 tunnels (e.g., 4, 8, 16 tunnels), Equal-Cost Multi-Path (ECMP) routing is enabled on AWS Transit Gateway to aggregate tunnel bandwidth.
-* **Bandwidth:** ~1.25 Gbps per tunnel (single TCP/UDP flow). Scalable up to ~20 Gbps aggregate throughput with 16 tunnels and multiple parallel flows.
+* **Architecture:** Dual IPsec VPN tunnels established over the public internet between GCP HA VPN gateways and AWS Site-to-Site VPN.
+  * **AWS Virtual Private Gateway (VGW) Mode:** Standard AWS VGW lacks BGP ECMP support and operates in **Active/Standby mode**, providing a single-tunnel effective bandwidth of **~1.25 Gbps** with zero TGW surcharge.
+  * **AWS Transit Gateway (TGW ECMP) Mode:** To aggregate 2 tunnels into **Active/Active (~2.5 Gbps)** or scale up to 4, 8, or 16 tunnels, **AWS Transit Gateway (TGW) ECMP routing** is required, incurring TGW attachment and $0.02/GB data processing fees.
+* **Bandwidth:** 
+  * VGW (2 tunnels): ~1.25 Gbps effective (Active/Standby)
+  * TGW ECMP: 2 tunnels ~2.5 Gbps, 4 tunnels ~5 Gbps, 8 tunnels ~10 Gbps, 16 tunnels up to ~20 Gbps aggregate throughput
 * **Latency:** Dependent on public internet routing (~3–8 ms RTT in Seoul).
 * **SLA:** 99.99% service availability for GCP HA VPN and AWS Site-to-Site VPN.
 * **Cost Breakdown:**
   * **1. Fixed Infrastructure Costs (Hourly Gateway & Attachment Fees):**
     * **GCP HA VPN Tunnel:** `$0.075/hr` per tunnel (Seoul region)
     * **AWS Site-to-Site VPN Connection:** `$0.05/hr` per connection (2 tunnels per connection)
-    * **AWS Transit Gateway Attachment (>2 tunnels):** `$0.05/hr` per connection
+    * **AWS Transit Gateway Attachment (When TGW ECMP is selected):** `$0.05/hr` per connection
   * **2. Variable Data Processing & Public Internet Egress (Tiered):**
-    * **AWS Transit Gateway Data Processing (>2 tunnels):** `$0.02 per decimal GB`
+    * **AWS Transit Gateway Data Processing (When TGW ECMP is selected):** `$0.02 per decimal GB`
     * **AWS → GCP Public Internet Egress (Tiered):**
       * 0 – 10 TB: `$0.126 / GB`
       * 10 – 50 TB: `$0.122 / GB`

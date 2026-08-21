@@ -121,6 +121,23 @@ def test_post_calculate_korean():
     assert "$" in response.text
 
 
+def test_post_calculate_2_tunnels_tgw_ecmp():
+    payload = {
+        "amount_a2g": "50",
+        "amount_g2a": "10",
+        "unit": "TB",
+        "port_gbps": "10",
+        "link_count": "2",
+        "colo_per_link_monthly": "0",
+        "vpn_tunnels": "2_tgw",
+        "lang": "ko",
+    }
+    response = client.post("/calculate", data=payload)
+    assert response.status_code == 200
+    assert "2.5 Gbps 실효 (2개 터널 TGW ECMP × 1.25G)" in response.text
+    assert "TGW ECMP" in response.text
+
+
 def test_post_calculate_spof_warning():
     payload = {
         "amount_a2g": "10",
