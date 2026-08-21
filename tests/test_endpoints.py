@@ -84,9 +84,10 @@ def test_post_calculate_usd():
     assert "CHEAPEST" in response.text or "Cheapest option" in response.text
     assert "Visual Cost Composition Breakdown" in response.text
     assert "Link Capacity Utilization" in response.text
+    assert "result-tabs" in response.text
+    assert "tab-summary" in response.text
+    assert "17.0 Gbps eff. (20G nominal × 85%)" in response.text
     assert "$" in response.text
-    # By default, breakeven is OFF
-    assert "be-table" not in response.text
 
 
 def test_post_calculate_korean():
@@ -99,7 +100,6 @@ def test_post_calculate_korean():
         "colo_per_link_monthly": "0",
         "vpn_tunnels": "2",
         "lang": "ko",
-        "show_breakeven": "1",
     }
     response = client.post("/calculate", data=payload)
     assert response.status_code == 200
@@ -107,9 +107,9 @@ def test_post_calculate_korean():
     assert "최저가" in response.text
     assert "비용 구성 시각화" in response.text
     assert "고정 인프라" in response.text
-    assert "Link 대역폭 사용률" in response.text
-    assert "손익분기점" in response.text or "Break-even" in response.text
-    assert "be-table" in response.text
+    assert "17.0 Gbps 실효 (20G 명목 × 85%)" in response.text
+    assert "result-tabs" in response.text
+    assert "tab-breakeven" in response.text
     # Technical terms preserved
     assert "AWS DX" in response.text
     assert "Cross-Cloud Interconnect" in response.text

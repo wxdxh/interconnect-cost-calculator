@@ -32,7 +32,7 @@
   <span class="fieldhint">= {{ "%.2f"|format(inputs.total_tb) }} TB · {{ "%.2f"|format(inputs.total_tib) }} TiB</span>
 </p>
 
-<!-- Summary Cards -->
+<!-- Executive Summary Cards -->
 <div class="summary summary-3">
   <div class="totalbox {% if cmp.cheaper == 'A' %}winner{% endif %}">
     <div class="lbl">
@@ -42,7 +42,7 @@
     <div class="total">{{ a.total|money }}</div>
     <div class="pergb">{{ a.per_gb|money }} / GB ({{ t.all_traffic }})</div>
     <div class="bwtime">
-      <span class="bw">⚡ {{ "%.1f"|format(a.bw_gbps) }} Gbps eff.</span>
+      <span class="bw" title="Line rate: {{ a.bw_nominal_gbps }} Gbps">⚡ {{ a.bw_desc }}</span>
       <span class="time">⏱ A→G: {{ a.time_a2g_h|hours(lang) }}</span>
       <span class="time">⏱ G→A: {{ a.time_g2a_h|hours(lang) }}</span>
     </div>
@@ -56,7 +56,7 @@
     <div class="total">{{ b.total|money }}</div>
     <div class="pergb">{{ b.per_gb|money }} / GB ({{ t.all_traffic }})</div>
     <div class="bwtime">
-      <span class="bw">⚡ {{ "%.1f"|format(b.bw_gbps) }} Gbps eff.</span>
+      <span class="bw" title="Line rate: {{ b.bw_nominal_gbps }} Gbps">⚡ {{ b.bw_desc }}</span>
       <span class="time">⏱ A→G: {{ b.time_a2g_h|hours(lang) }}</span>
       <span class="time">⏱ G→A: {{ b.time_g2a_h|hours(lang) }}</span>
     </div>
@@ -70,7 +70,7 @@
     <div class="total">{{ c.total|money }}</div>
     <div class="pergb">{{ c.per_gb|money }} / GB ({{ t.all_traffic }})</div>
     <div class="bwtime">
-      <span class="bw">⚡ {{ "%.1f"|format(c.bw_gbps) }} Gbps eff.</span>
+      <span class="bw" title="Per-tunnel rate: 1.25 Gbps">⚡ {{ c.bw_desc }}</span>
       <span class="time">⏱ A→G: {{ c.time_a2g_h|hours(lang) }}</span>
       <span class="time">⏱ G→A: {{ c.time_g2a_h|hours(lang) }}</span>
     </div>
@@ -81,276 +81,334 @@
   {{ t.cheapest_verdict }} <strong>Option {{ cmp.cheaper }}</strong>
 </p>
 
-<!-- Break-even & Crossover Analysis Card (Conditional) -->
-{% if inputs.show_breakeven %}
-<div class="breakeven-card">
-  <div class="be-header">
-    <span class="be-title">⚖ {{ t.breakeven_title }}</span>
-    {% if bk.has_crossover %}
-    <span class="be-badge">
-      {% if lang == 'ko' %}
-        Option B(CCI) 손익분기점: <strong>~{{ "%.1f"|format(bk.crossover_tb) }} TB / 월</strong>
-      {% else %}
-        Option B(CCI) Crossover: <strong>~{{ "%.1f"|format(bk.crossover_tb) }} TB / mo</strong>
+<!-- Result Navigation Tabs -->
+<div class="result-tabs" role="tablist">
+  <button type="button" class="tab-btn active" data-tab="tab-summary" onclick="selectTab('tab-summary')">{{ t.tab_summary }}</button>
+  <button type="button" class="tab-btn" data-tab="tab-breakdown" onclick="selectTab('tab-breakdown')">{{ t.tab_breakdown }}</button>
+  <button type="button" class="tab-btn" data-tab="tab-performance" onclick="selectTab('tab-performance')">{{ t.tab_performance }}</button>
+  <button type="button" class="tab-btn" data-tab="tab-breakeven" onclick="selectTab('tab-breakeven')">{{ t.tab_breakeven }}</button>
+</div>
+
+<!-- ================= Tab 1: Cost Summary ================= -->
+<div id="tab-summary" class="tab-panel active">
+  <!-- Visual Cost Breakdown Chart -->
+  <div class="chart-card">
+    <div class="chart-header">
+      <span class="chart-title">{{ t.chart_title }}</span>
+      <div class="chart-legend">
+        <span class="legend-item"><span class="legend-dot color-infra"></span> {{ t.legend_infra }}</span>
+        <span class="legend-item"><span class="legend-dot color-a2g"></span> {{ t.legend_a2g }}</span>
+        <span class="legend-item"><span class="legend-dot color-g2a"></span> {{ t.legend_g2a }}</span>
+      </div>
+    </div>
+
+    <div class="bar-group">
+      <div class="bar-row">
+        <div class="bar-label">Option A</div>
+        <div class="stacked-bar">
+          <div class="bar-segment color-infra" style="width: {{ '%.1f'|format(a.infra_pct) }}%" title="Fixed Infra: {{ a.infra.subtotal|money }} ({{ '%.1f'|format(a.infra_pct) }}%)"></div>
+          <div class="bar-segment color-a2g" style="width: {{ '%.1f'|format(a.egress_a2g_pct) }}%" title="AWS→GCP: {{ a.egress_a2g.subtotal|money }} ({{ '%.1f'|format(a.egress_a2g_pct) }}%)"></div>
+          <div class="bar-segment color-g2a" style="width: {{ '%.1f'|format(a.egress_g2a_pct) }}%" title="GCP→AWS: {{ a.egress_g2a.subtotal|money }} ({{ '%.1f'|format(a.egress_g2a_pct) }}%)"></div>
+        </div>
+        <div class="bar-total">{{ a.total|money }}</div>
+      </div>
+
+      <div class="bar-row">
+        <div class="bar-label">Option B</div>
+        <div class="stacked-bar">
+          <div class="bar-segment color-infra" style="width: {{ '%.1f'|format(b.infra_pct) }}%" title="Fixed Infra: {{ b.infra.subtotal|money }} ({{ '%.1f'|format(b.infra_pct) }}%)"></div>
+          <div class="bar-segment color-a2g" style="width: {{ '%.1f'|format(b.egress_a2g_pct) }}%" title="AWS→GCP: {{ b.egress_a2g.subtotal|money }} ({{ '%.1f'|format(b.egress_a2g_pct) }}%)"></div>
+          <div class="bar-segment color-g2a" style="width: {{ '%.1f'|format(b.egress_g2a_pct) }}%" title="GCP→AWS: {{ b.egress_g2a.subtotal|money }} ({{ '%.1f'|format(b.egress_g2a_pct) }}%)"></div>
+        </div>
+        <div class="bar-total">{{ b.total|money }}</div>
+      </div>
+
+      <div class="bar-row">
+        <div class="bar-label">Option C</div>
+        <div class="stacked-bar">
+          <div class="bar-segment color-infra" style="width: {{ '%.1f'|format(c.infra_pct) }}%" title="Fixed Infra: {{ c.infra.subtotal|money }} ({{ '%.1f'|format(c.infra_pct) }}%)"></div>
+          <div class="bar-segment color-a2g" style="width: {{ '%.1f'|format(c.egress_a2g_pct) }}%" title="AWS→GCP: {{ c.egress_a2g.subtotal|money }} ({{ '%.1f'|format(c.egress_a2g_pct) }}%)"></div>
+          <div class="bar-segment color-g2a" style="width: {{ '%.1f'|format(c.egress_g2a_pct) }}%" title="GCP→AWS: {{ c.egress_g2a.subtotal|money }} ({{ '%.1f'|format(c.egress_g2a_pct) }}%)"></div>
+        </div>
+        <div class="bar-total">{{ c.total|money }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- High-level comparison summary table -->
+  <table class="breakdown mini-summary-table">
+    <thead>
+      <tr>
+        <th>{{ t.line_item }}</th>
+        <th>Option A (DI+DX)</th>
+        <th>Option B (CCI)</th>
+        <th>Option C (HA VPN)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>{{ t.cat_infra }}</strong></td>
+        <td>{{ a.infra.subtotal|money }}</td>
+        <td>{{ b.infra.subtotal|money }}</td>
+        <td>{{ c.infra.subtotal|money }}</td>
+      </tr>
+      <tr>
+        <td><strong>{{ t.cat_egress_a2g }}</strong> ({{ "%.2f"|format(inputs.amount_a2g) }} {{ u }})</td>
+        <td>{{ a.egress_a2g.subtotal|money }}</td>
+        <td>{{ b.egress_a2g.subtotal|money }}</td>
+        <td>{{ c.egress_a2g.subtotal|money }}</td>
+      </tr>
+      <tr>
+        <td><strong>{{ t.cat_egress_g2a }}</strong> ({{ "%.2f"|format(inputs.amount_g2a) }} {{ u }})</td>
+        <td>{{ a.egress_g2a.subtotal|money }}</td>
+        <td>{{ b.egress_g2a.subtotal|money }}</td>
+        <td>{{ c.egress_g2a.subtotal|money }}</td>
+      </tr>
+      <tr class="totalrow">
+        <td>{{ t.cat_total }}</td>
+        <td {% if cmp.cheaper == 'A' %}class="win-cell"{% endif %}>{{ a.total|money }}</td>
+        <td {% if cmp.cheaper == 'B' %}class="win-cell"{% endif %}>{{ b.total|money }}</td>
+        <td {% if cmp.cheaper == 'C' %}class="win-cell"{% endif %}>{{ c.total|money }}</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ================= Tab 2: Detailed Breakdown ================= -->
+<div id="tab-breakdown" class="tab-panel">
+  <table class="breakdown">
+    <thead>
+      <tr>
+        <th>{{ t.line_item }}</th>
+        <th>Option A</th>
+        <th>Option B</th>
+        <th>Option C (HA VPN)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- Category 1: Fixed infra -->
+      <tr class="catrow">
+        <td>{{ t.cat_infra }} <span class="cattag">({{ t.fixed_cost }})</span></td>
+        <td><strong>{{ a.infra.subtotal|money }}</strong></td>
+        <td><strong>{{ b.infra.subtotal|money }}</strong></td>
+        <td><strong>{{ c.infra.subtotal|money }}</strong></td>
+      </tr>
+      <tr class="subrow">
+        <td>· AWS port / connection</td>
+        <td>{{ a.infra.aws_port|money }} <span class="fieldhint">($2.25/hr × {{ inputs.link_count }})</span></td>
+        <td>{{ b.infra.aws_port|money }} <span class="fieldhint">($2.25/hr × {{ inputs.link_count }})</span></td>
+        <td>{{ c.infra.aws_vpn|money }} <span class="fieldhint">({{ inputs.aws_vpn_connections }} conn × $0.05/hr)</span></td>
+      </tr>
+      <tr class="subrow">
+        <td>· AWS Transit Gateway attach</td>
+        <td class="muted">—</td>
+        <td class="muted">—</td>
+        <td>{% if inputs.uses_tgw %}{{ c.infra.aws_tgw_attach|money }} <span class="fieldhint">({{ inputs.aws_vpn_connections }} conn × $0.05/hr)</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+      </tr>
+      <tr class="subrow">
+        <td>· GCP port / tunnel</td>
+        <td>{{ a.infra.gcp_port|money }} <span class="fieldhint">(${{ "%.3f"|format(a.infra.gcp_port / inputs.link_count / 730) }}/hr × {{ inputs.link_count }})</span></td>
+        <td>{{ b.infra.gcp_port|money }} <span class="fieldhint">($5.60/hr × {{ inputs.link_count }})</span></td>
+        <td>{{ c.infra.gcp_tunnel|money }} <span class="fieldhint">({{ inputs.vpn_tunnels }}t × $0.075/hr)</span></td>
+      </tr>
+      <tr class="subrow">
+        <td>· GCP VLAN attachment</td>
+        <td>{{ a.infra.gcp_vlan|money }} <span class="fieldhint">($0.10/hr × {{ inputs.link_count }})</span></td>
+        <td>{{ b.infra.gcp_vlan|money }} <span class="fieldhint">($0.10/hr × {{ inputs.link_count }})</span></td>
+        <td class="muted">—</td>
+      </tr>
+      <tr class="subrow">
+        <td>· Colo cross-connect (monthly)</td>
+        <td>{{ a.infra.colo|money }}</td>
+        <td class="muted">—</td>
+        <td class="muted">—</td>
+      </tr>
+
+      <!-- Category 2: AWS -> GCP Egress -->
+      <tr class="catrow">
+        <td>{{ t.cat_egress_a2g }} <span class="cattag">({{ t.traffic_based }})</span></td>
+        <td><strong>{{ a.egress_a2g.subtotal|money }}</strong></td>
+        <td><strong>{{ b.egress_a2g.subtotal|money }}</strong></td>
+        <td><strong>{{ c.egress_a2g.subtotal|money }}</strong></td>
+      </tr>
+      <tr class="subrow">
+        <td>· AWS Direct Connect DTO ($0.041/GB)</td>
+        <td>{{ a.egress_a2g.aws_dto|money }}</td>
+        <td>{{ b.egress_a2g.aws_dto|money }}</td>
+        <td class="muted">—</td>
+      </tr>
+      <tr class="subrow">
+        <td>· AWS Internet egress (tiered)</td>
+        <td class="muted">—</td>
+        <td class="muted">—</td>
+        <td>{{ c.egress_a2g.aws_internet_egress|money }}</td>
+      </tr>
+      <tr class="subrow">
+        <td>· AWS Transit Gateway data ($0.02/GB)</td>
+        <td class="muted">—</td>
+        <td class="muted">—</td>
+        <td>{% if inputs.uses_tgw %}{{ c.egress_a2g.aws_tgw_data|money }}{% else %}<span class="muted">—</span>{% endif %}</td>
+      </tr>
+
+      <!-- Category 3: GCP -> AWS Egress -->
+      <tr class="catrow">
+        <td>{{ t.cat_egress_g2a }} <span class="cattag">({{ t.traffic_based }})</span></td>
+        <td><strong>{{ a.egress_g2a.subtotal|money }}</strong></td>
+        <td><strong>{{ b.egress_g2a.subtotal|money }}</strong></td>
+        <td><strong>{{ c.egress_g2a.subtotal|money }}</strong></td>
+      </tr>
+      <tr class="subrow">
+        <td>· GCP Interconnect egress ($0.042/GiB)</td>
+        <td>{{ a.egress_g2a.gcp_egress|money }}</td>
+        <td>{{ b.egress_g2a.gcp_egress|money }}</td>
+        <td class="muted">—</td>
+      </tr>
+      <tr class="subrow">
+        <td>· GCP Internet egress (tiered)</td>
+        <td class="muted">—</td>
+        <td class="muted">—</td>
+        <td>{{ c.egress_g2a.gcp_internet_egress|money }}</td>
+      </tr>
+
+      <!-- Totals -->
+      <tr class="totalrow">
+        <td>{{ t.cat_total }}</td>
+        <td {% if cmp.cheaper == 'A' %}class="win-cell"{% endif %}>{{ a.total|money }}</td>
+        <td {% if cmp.cheaper == 'B' %}class="win-cell"{% endif %}>{{ b.total|money }}</td>
+        <td {% if cmp.cheaper == 'C' %}class="win-cell"{% endif %}>{{ c.total|money }}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="notice">
+    <strong>{{ t.notes_title }}</strong>
+    <ul>
+      <li><strong>Option A (DI + AWS DX)</strong>: {{ t.note_a }}</li>
+      <li><strong>Option B (CCI)</strong>: {{ t.note_b }}</li>
+      <li><strong>Option C (HA VPN)</strong>: {{ t.note_c }}</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ================= Tab 3: Performance & Capacity ================= -->
+<div id="tab-performance" class="tab-panel">
+  <!-- Link Utilization & Capacity Indicator -->
+  <div class="cap {% if cap.over_capacity %}warn-cap{% endif %}">
+    <div class="cap-header">
+      <span>{{ t.cap_title }} (A/B {{ inputs.port_gbps }}G × {{ inputs.link_count }}): avg <strong>{{ "%.2f"|format(cap.avg_gbps) }} Gbps</strong> / nominal <strong>{{ cap.aggregate_gbps }} Gbps</strong></span>
+      <strong>{{ "%.1f"|format(cap.utilization_pct) }}%</strong>
+    </div>
+    <div class="meter-track">
+      <div class="meter-bar {% if cap.over_capacity %}meter-danger{% elif cap.utilization_pct > 70 %}meter-warn{% else %}meter-ok{% endif %}"
+           style="width: {{ [cap.utilization_pct, 100.0]|min }}%"></div>
+    </div>
+    {% if cap.over_capacity %}
+      <div class="danger-msg">{{ t.cap_danger }}</div>
+    {% elif cap.utilization_pct > 70 %}
+      <div class="warn-msg">{{ t.cap_warn }}</div>
+    {% endif %}
+  </div>
+
+  <table class="breakdown">
+    <thead>
+      <tr>
+        <th>{{ t.line_item }}</th>
+        <th>Option A</th>
+        <th>Option B</th>
+        <th>Option C (HA VPN)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>{{ t.effective_bw }}</strong></td>
+        <td>{{ a.bw_desc }}</td>
+        <td>{{ b.bw_desc }}</td>
+        <td>{{ c.bw_desc }}</td>
+      </tr>
+      <tr>
+        <td><strong>{{ t.transfer_time_a2g }}</strong> ({{ "%.2f"|format(inputs.amount_a2g) }} {{ u }})</td>
+        <td>⏱ {{ a.time_a2g_h|hours(lang) }}</td>
+        <td>⏱ {{ b.time_a2g_h|hours(lang) }}</td>
+        <td>⏱ {{ c.time_a2g_h|hours(lang) }}</td>
+      </tr>
+      <tr>
+        <td><strong>{{ t.transfer_time_g2a }}</strong> ({{ "%.2f"|format(inputs.amount_g2a) }} {{ u }})</td>
+        <td>⏱ {{ a.time_g2a_h|hours(lang) }}</td>
+        <td>⏱ {{ b.time_g2a_h|hours(lang) }}</td>
+        <td>⏱ {{ c.time_g2a_h|hours(lang) }}</td>
+      </tr>
+    </tbody>
+  </table>
+  <p class="fieldhint" style="margin-top:8px;">
+    ℹ {{ t.note_transfer }}
+  </p>
+</div>
+
+<!-- ================= Tab 4: Break-even Analysis ================= -->
+<div id="tab-breakeven" class="tab-panel">
+  <div class="breakeven-card">
+    <div class="be-header">
+      <span class="be-title">⚖ {{ t.breakeven_title }}</span>
+      {% if bk.has_crossover %}
+      <span class="be-badge">
+        {% if lang == 'ko' %}
+          Option B(CCI) 손익분기점: <strong>~{{ "%.1f"|format(bk.crossover_tb) }} TB / 월</strong>
+        {% else %}
+          Option B(CCI) Crossover: <strong>~{{ "%.1f"|format(bk.crossover_tb) }} TB / mo</strong>
+        {% endif %}
+      </span>
       {% endif %}
-    </span>
-    {% endif %}
-  </div>
+    </div>
 
-  <div class="be-body">
-    {% if bk.has_crossover %}
-    <p class="be-desc">
-      {% if lang == 'ko' %}
-        월 트래픽이 <strong>{{ "%.1f"|format(bk.crossover_tb) }} TB</strong> 미만일 때는 <strong>Option C (HA VPN)</strong>이 고정비가 낮아 가장 저렴하며, <strong>{{ "%.1f"|format(bk.crossover_tb) }} TB</strong>를 초과하면 Egress 요금이 저렴한 <strong>Option B (Cross-Cloud Interconnect)</strong>가 총비용 측면에서 더 유리해집니다.
-      {% else %}
-        For traffic below <strong>{{ "%.1f"|format(bk.crossover_tb) }} TB/mo</strong>, <strong>Option C (HA VPN)</strong> is most economical due to minimal fixed infra. Above <strong>{{ "%.1f"|format(bk.crossover_tb) }} TB/mo</strong>, <strong>Option B (Cross-Cloud Interconnect)</strong> becomes cheaper due to lower per-GB interconnect egress rates.
+    <div class="be-body">
+      {% if bk.has_crossover %}
+      <p class="be-desc">
+        {% if lang == 'ko' %}
+          월 트래픽이 <strong>{{ "%.1f"|format(bk.crossover_tb) }} TB</strong> 미만일 때는 <strong>Option C (HA VPN)</strong>이 고정비가 낮아 가장 저렴하며, <strong>{{ "%.1f"|format(bk.crossover_tb) }} TB</strong>를 초과하면 Egress 요금이 저렴한 <strong>Option B (Cross-Cloud Interconnect)</strong>가 총비용 측면에서 더 유리해집니다.
+        {% else %}
+          For traffic below <strong>{{ "%.1f"|format(bk.crossover_tb) }} TB/mo</strong>, <strong>Option C (HA VPN)</strong> is most economical due to minimal fixed infra. Above <strong>{{ "%.1f"|format(bk.crossover_tb) }} TB/mo</strong>, <strong>Option B (Cross-Cloud Interconnect)</strong> becomes cheaper due to lower per-GB interconnect egress rates.
+        {% endif %}
+      </p>
       {% endif %}
-    </p>
-    {% endif %}
 
-    <!-- Volume Cost Comparison Matrix -->
-    <div class="be-matrix-wrap">
-      <table class="be-table">
-        <thead>
-          <tr>
-            <th>{{ t.traffic_vol }}</th>
-            <th>Option A (DI+DX)</th>
-            <th>Option B (CCI)</th>
-            <th>Option C (HA VPN)</th>
-            <th>{{ t.cheapest_verdict }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for pt in bk.curve_points %}
-          <tr {% if (pt.vol_tb - inputs.total_tb)|abs < 0.1 %}class="highlight-row"{% endif %}>
-            <td><strong>{{ "%.1f"|format(pt.vol_tb) }} TB</strong> {% if (pt.vol_tb - inputs.total_tb)|abs < 0.1 %}<span class="curr-tag">(current)</span>{% elif bk.has_crossover and (pt.vol_tb - bk.crossover_tb)|abs < 0.2 %}<span class="cross-tag">(crossover)</span>{% endif %}</td>
-            <td>{{ pt.cost_a|money }}</td>
-            <td {% if pt.cost_b <= pt.cost_c and pt.cost_b <= pt.cost_a %}class="win-cell"{% endif %}>{{ pt.cost_b|money }}</td>
-            <td {% if pt.cost_c <= pt.cost_b and pt.cost_c <= pt.cost_a %}class="win-cell"{% endif %}>{{ pt.cost_c|money }}</td>
-            <td>
-              {% if pt.cost_c <= pt.cost_b and pt.cost_c <= pt.cost_a %}
-                <span class="pill-badge pill-c">Option C</span>
-              {% elif pt.cost_b <= pt.cost_a %}
-                <span class="pill-badge pill-b">Option B</span>
-              {% else %}
-                <span class="pill-badge pill-a">Option A</span>
-              {% endif %}
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </div>
-</div>
-{% endif %}
-
-<!-- Visual Cost Breakdown Chart -->
-<div class="chart-card">
-  <div class="chart-header">
-    <span class="chart-title">{{ t.chart_title }}</span>
-    <div class="chart-legend">
-      <span class="legend-item"><span class="legend-dot color-infra"></span> {{ t.legend_infra }}</span>
-      <span class="legend-item"><span class="legend-dot color-a2g"></span> {{ t.legend_a2g }}</span>
-      <span class="legend-item"><span class="legend-dot color-g2a"></span> {{ t.legend_g2a }}</span>
-    </div>
-  </div>
-
-  <div class="bar-group">
-    <div class="bar-row">
-      <div class="bar-label">Option A</div>
-      <div class="stacked-bar">
-        <div class="bar-segment color-infra" style="width: {{ '%.1f'|format(a.infra_pct) }}%" title="Fixed Infra: {{ a.infra.subtotal|money }} ({{ '%.1f'|format(a.infra_pct) }}%)"></div>
-        <div class="bar-segment color-a2g" style="width: {{ '%.1f'|format(a.egress_a2g_pct) }}%" title="AWS→GCP: {{ a.egress_a2g.subtotal|money }} ({{ '%.1f'|format(a.egress_a2g_pct) }}%)"></div>
-        <div class="bar-segment color-g2a" style="width: {{ '%.1f'|format(a.egress_g2a_pct) }}%" title="GCP→AWS: {{ a.egress_g2a.subtotal|money }} ({{ '%.1f'|format(a.egress_g2a_pct) }}%)"></div>
+      <!-- Volume Cost Comparison Matrix -->
+      <div class="be-matrix-wrap">
+        <table class="be-table">
+          <thead>
+            <tr>
+              <th>{{ t.traffic_vol }}</th>
+              <th>Option A (DI+DX)</th>
+              <th>Option B (CCI)</th>
+              <th>Option C (HA VPN)</th>
+              <th>{{ t.cheapest_verdict }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for pt in bk.curve_points %}
+            <tr {% if (pt.vol_tb - inputs.total_tb)|abs < 0.1 %}class="highlight-row"{% endif %}>
+              <td><strong>{{ "%.1f"|format(pt.vol_tb) }} TB</strong> {% if (pt.vol_tb - inputs.total_tb)|abs < 0.1 %}<span class="curr-tag">(current)</span>{% elif bk.has_crossover and (pt.vol_tb - bk.crossover_tb)|abs < 0.2 %}<span class="cross-tag">(crossover)</span>{% endif %}</td>
+              <td>{{ pt.cost_a|money }}</td>
+              <td {% if pt.cost_b <= pt.cost_c and pt.cost_b <= pt.cost_a %}class="win-cell"{% endif %}>{{ pt.cost_b|money }}</td>
+              <td {% if pt.cost_c <= pt.cost_b and pt.cost_c <= pt.cost_a %}class="win-cell"{% endif %}>{{ pt.cost_c|money }}</td>
+              <td>
+                {% if pt.cost_c <= pt.cost_b and pt.cost_c <= pt.cost_a %}
+                  <span class="pill-badge pill-c">Option C</span>
+                {% elif pt.cost_b <= pt.cost_a %}
+                  <span class="pill-badge pill-b">Option B</span>
+                {% else %}
+                  <span class="pill-badge pill-a">Option A</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
       </div>
-      <div class="bar-total">{{ a.total|money }}</div>
-    </div>
-
-    <div class="bar-row">
-      <div class="bar-label">Option B</div>
-      <div class="stacked-bar">
-        <div class="bar-segment color-infra" style="width: {{ '%.1f'|format(b.infra_pct) }}%" title="Fixed Infra: {{ b.infra.subtotal|money }} ({{ '%.1f'|format(b.infra_pct) }}%)"></div>
-        <div class="bar-segment color-a2g" style="width: {{ '%.1f'|format(b.egress_a2g_pct) }}%" title="AWS→GCP: {{ b.egress_a2g.subtotal|money }} ({{ '%.1f'|format(b.egress_a2g_pct) }}%)"></div>
-        <div class="bar-segment color-g2a" style="width: {{ '%.1f'|format(b.egress_g2a_pct) }}%" title="GCP→AWS: {{ b.egress_g2a.subtotal|money }} ({{ '%.1f'|format(b.egress_g2a_pct) }}%)"></div>
-      </div>
-      <div class="bar-total">{{ b.total|money }}</div>
-    </div>
-
-    <div class="bar-row">
-      <div class="bar-label">Option C</div>
-      <div class="stacked-bar">
-        <div class="bar-segment color-infra" style="width: {{ '%.1f'|format(c.infra_pct) }}%" title="Fixed Infra: {{ c.infra.subtotal|money }} ({{ '%.1f'|format(c.infra_pct) }}%)"></div>
-        <div class="bar-segment color-a2g" style="width: {{ '%.1f'|format(c.egress_a2g_pct) }}%" title="AWS→GCP: {{ c.egress_a2g.subtotal|money }} ({{ '%.1f'|format(c.egress_a2g_pct) }}%)"></div>
-        <div class="bar-segment color-g2a" style="width: {{ '%.1f'|format(c.egress_g2a_pct) }}%" title="GCP→AWS: {{ c.egress_g2a.subtotal|money }} ({{ '%.1f'|format(c.egress_g2a_pct) }}%)"></div>
-      </div>
-      <div class="bar-total">{{ c.total|money }}</div>
     </div>
   </div>
 </div>
 
-<!-- Link Utilization & Capacity Indicator -->
-<div class="cap {% if cap.over_capacity %}warn-cap{% endif %}">
-  <div class="cap-header">
-    <span>{{ t.cap_title }} (A/B {{ inputs.port_gbps }}G × {{ inputs.link_count }}): avg <strong>{{ "%.2f"|format(cap.avg_gbps) }} Gbps</strong> / nominal <strong>{{ cap.aggregate_gbps }} Gbps</strong></span>
-    <strong>{{ "%.1f"|format(cap.utilization_pct) }}%</strong>
-  </div>
-  <div class="meter-track">
-    <div class="meter-bar {% if cap.over_capacity %}meter-danger{% elif cap.utilization_pct > 70 %}meter-warn{% else %}meter-ok{% endif %}"
-         style="width: {{ [cap.utilization_pct, 100.0]|min }}%"></div>
-  </div>
-  {% if cap.over_capacity %}
-    <div class="danger-msg">{{ t.cap_danger }}</div>
-  {% elif cap.utilization_pct > 70 %}
-    <div class="warn-msg">{{ t.cap_warn }}</div>
-  {% endif %}
-</div>
-
-<!-- Detailed Breakdown Table -->
-<table class="breakdown">
-  <thead>
-    <tr>
-      <th>{{ t.line_item }}</th>
-      <th>Option A</th>
-      <th>Option B</th>
-      <th>Option C (HA VPN)</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr class="catrow">
-      <td>① Infrastructure <span class="cattag">{{ t.fixed_cost }}</span></td>
-      <td>{{ a.infra.subtotal|money }}</td>
-      <td>{{ b.infra.subtotal|money }}</td>
-      <td>{{ c.infra.subtotal|money }}</td>
-    </tr>
-    <tr class="subrow">
-      <td>AWS DX Dedicated port × {{ inputs.link_count }} ({{ inputs.port_gbps }} Gbps)</td>
-      <td>{{ a.infra.aws_port|money }}</td>
-      <td>{{ b.infra.aws_port|money }}</td>
-      <td class="muted">n/a</td>
-    </tr>
-    <tr class="subrow">
-      <td>GCP port × {{ inputs.link_count }} ({{ inputs.port_gbps }} Gbps)</td>
-      <td>{{ a.infra.gcp_port|money }}</td>
-      <td>{{ b.infra.gcp_port|money }}</td>
-      <td class="muted">n/a</td>
-    </tr>
-    <tr class="subrow">
-      <td>GCP VLAN attachment × {{ inputs.link_count }}</td>
-      <td>{{ a.infra.gcp_vlan|money }}</td>
-      <td>{{ b.infra.gcp_vlan|money }}</td>
-      <td class="muted">n/a</td>
-    </tr>
-    <tr class="subrow">
-      <td>Colo cross-connect × {{ inputs.link_count }}</td>
-      <td>{{ a.infra.colo|money }}</td>
-      <td class="muted">n/a</td>
-      <td class="muted">n/a</td>
-    </tr>
-    <tr class="subrow">
-      <td>GCP HA VPN tunnels × {{ inputs.vpn_tunnels }} ($0.075/hr Seoul)</td>
-      <td class="muted">n/a</td>
-      <td class="muted">n/a</td>
-      <td>{{ c.infra.gcp_tunnel|money }}</td>
-    </tr>
-    <tr class="subrow">
-      <td>AWS S2S VPN connections × {{ inputs.aws_vpn_connections }}</td>
-      <td class="muted">n/a</td>
-      <td class="muted">n/a</td>
-      <td>{{ c.infra.aws_vpn|money }}</td>
-    </tr>
-    {% if inputs.uses_tgw %}
-    <tr class="subrow">
-      <td>AWS TGW VPN attachment × {{ inputs.aws_vpn_connections }}</td>
-      <td class="muted">n/a</td>
-      <td class="muted">n/a</td>
-      <td>{{ c.infra.aws_tgw_attach|money }}</td>
-    </tr>
-    {% endif %}
-
-    <tr class="catrow">
-      <td>② AWS → GCP egress <span class="cattag">{{ t.traffic_based }}</span></td>
-      <td>{{ a.egress_a2g.subtotal|money }}</td>
-      <td>{{ b.egress_a2g.subtotal|money }}</td>
-      <td>{{ c.egress_a2g.subtotal|money }}</td>
-    </tr>
-    <tr class="subrow">
-      <td>AWS DX Local DTO — Seoul → Seoul (per decimal GB)</td>
-      <td>{{ a.egress_a2g.aws_dto|money }}</td>
-      <td>{{ b.egress_a2g.aws_dto|money }}</td>
-      <td class="muted">n/a</td>
-    </tr>
-    <tr class="subrow">
-      <td>AWS Internet egress (tiered)</td>
-      <td class="muted">n/a</td>
-      <td class="muted">n/a</td>
-      <td>{{ c.egress_a2g.aws_internet_egress|money }}</td>
-    </tr>
-    {% if inputs.uses_tgw %}
-    <tr class="subrow">
-      <td>AWS TGW data processing ($0.02/GB)</td>
-      <td class="muted">n/a</td>
-      <td class="muted">n/a</td>
-      <td>{{ c.egress_a2g.aws_tgw_data|money }}</td>
-    </tr>
-    {% endif %}
-
-    <tr class="catrow">
-      <td>③ GCP → AWS egress <span class="cattag">{{ t.traffic_based }}</span></td>
-      <td>{{ a.egress_g2a.subtotal|money }}</td>
-      <td>{{ b.egress_g2a.subtotal|money }}</td>
-      <td>{{ c.egress_g2a.subtotal|money }}</td>
-    </tr>
-    <tr class="subrow">
-      <td>GCP Interconnect egress (per binary GiB, Asia→Asia)</td>
-      <td>{{ a.egress_g2a.gcp_egress|money }}</td>
-      <td>{{ b.egress_g2a.gcp_egress|money }}</td>
-      <td class="muted">n/a</td>
-    </tr>
-    <tr class="subrow">
-      <td>GCP Internet egress Seoul → S.Korea (tiered)</td>
-      <td class="muted">n/a</td>
-      <td class="muted">n/a</td>
-      <td>{{ c.egress_g2a.gcp_internet_egress|money }}</td>
-    </tr>
-
-    <tr class="totalrow">
-      <td>{{ t.monthly_total }}</td>
-      <td>{{ a.total|money }}</td>
-      <td>{{ b.total|money }}</td>
-      <td>{{ c.total|money }}</td>
-    </tr>
-    <tr class="totalrow" style="font-size: 13px; font-weight: 600;">
-      <td>{{ t.effective_bw }}</td>
-      <td>{{ "%.1f"|format(a.bw_gbps) }} Gbps</td>
-      <td>{{ "%.1f"|format(b.bw_gbps) }} Gbps</td>
-      <td>{{ "%.1f"|format(c.bw_gbps) }} Gbps</td>
-    </tr>
-    <tr class="subrow">
-      <td>{{ t.transfer_time_a2g }} ({{ "%.2f"|format(inputs.amount_a2g) }} {{ u }})</td>
-      <td>{{ a.time_a2g_h|hours(lang) }}</td>
-      <td>{{ b.time_a2g_h|hours(lang) }}</td>
-      <td>{{ c.time_a2g_h|hours(lang) }}</td>
-    </tr>
-    <tr class="subrow">
-      <td>{{ t.transfer_time_g2a }} ({{ "%.2f"|format(inputs.amount_g2a) }} {{ u }})</td>
-      <td>{{ a.time_g2a_h|hours(lang) }}</td>
-      <td>{{ b.time_g2a_h|hours(lang) }}</td>
-      <td>{{ c.time_g2a_h|hours(lang) }}</td>
-    </tr>
-  </tbody>
-</table>
-
-<div class="notice">
-  <strong>{{ t.notes_title }}</strong>
-  <ul>
-    <li><strong>Option A (DI + AWS DX)</strong>: {{ t.note_a }}</li>
-    <li><strong>Option B (CCI)</strong>: {{ t.note_b }}</li>
-    <li><strong>Option C (HA VPN)</strong>: {{ t.note_c }}</li>
-    <li><strong>{{ t.transfer_time_a2g }}</strong>: {{ t.note_transfer }}</li>
-  </ul>
-</div>
-
+<!-- Bottom Action & Export Bar -->
 <div class="exportbar"
      data-a2g="{{ inputs.amount_a2g }}"
      data-g2a="{{ inputs.amount_g2a }}"

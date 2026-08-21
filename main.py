@@ -325,6 +325,12 @@ def calculate(
             "total": a_total,
             "per_gb": per_gb_a,
             "bw_gbps": a_bw_gbps,
+            "bw_nominal_gbps": port_gbps_val * link_count,
+            "bw_desc": (
+                f"{a_bw_gbps:.1f} Gbps 실효 ({port_gbps_val * link_count}G 명목 × 85%)"
+                if lang_code == "ko"
+                else f"{a_bw_gbps:.1f} Gbps eff. ({port_gbps_val * link_count}G nominal × 85%)"
+            ),
             "time_h": a_time_a2g_h,
             "time_a2g_h": a_time_a2g_h,
             "time_g2a_h": a_time_g2a_h,
@@ -346,6 +352,12 @@ def calculate(
             "total": b_total,
             "per_gb": per_gb_b,
             "bw_gbps": b_bw_gbps,
+            "bw_nominal_gbps": port_gbps_val * link_count,
+            "bw_desc": (
+                f"{b_bw_gbps:.1f} Gbps 실효 ({port_gbps_val * link_count}G 명목 × 85%)"
+                if lang_code == "ko"
+                else f"{b_bw_gbps:.1f} Gbps eff. ({port_gbps_val * link_count}G nominal × 85%)"
+            ),
             "time_h": b_time_a2g_h,
             "time_a2g_h": b_time_a2g_h,
             "time_g2a_h": b_time_g2a_h,
@@ -374,6 +386,12 @@ def calculate(
             "total": c_total,
             "per_gb": per_gb_c,
             "bw_gbps": c_bw_gbps,
+            "bw_nominal_gbps": tunnels * 1.25,
+            "bw_desc": (
+                f"{c_bw_gbps:.1f} Gbps 실효 ({tunnels}개 터널 × 1.25G)"
+                if lang_code == "ko"
+                else f"{c_bw_gbps:.1f} Gbps eff. ({tunnels} tunnels × 1.25G)"
+            ),
             "time_h": c_time_a2g_h,
             "time_a2g_h": c_time_a2g_h,
             "time_g2a_h": c_time_g2a_h,

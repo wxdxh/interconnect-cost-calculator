@@ -117,6 +117,21 @@
       window.print();
     }
 
+    function selectTab(tabId) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      const activeBtn = document.querySelector(`.tab-btn[data-tab="${tabId}"]`);
+      const activePanel = document.getElementById(tabId);
+      if (activeBtn) activeBtn.classList.add('active');
+      if (activePanel) activePanel.classList.add('active');
+      window.sessionStorage.setItem('active_tab', tabId);
+    }
+
+    function initActiveTab() {
+      const saved = window.sessionStorage.getItem('active_tab') || 'tab-summary';
+      selectTab(saved);
+    }
+
     function switchLang(lang) {
       const url = new URL(window.location);
       url.searchParams.set('lang', lang);
@@ -129,6 +144,12 @@
         syncFormFromUrl(form);
         fmtTotal(form);
         htmx.trigger(form, 'submit');
+      }
+    });
+
+    document.body.addEventListener('htmx:afterSwap', function(evt) {
+      if (evt.detail.target && evt.detail.target.id === 'result') {
+        initActiveTab();
       }
     });
   </script>
@@ -182,7 +203,7 @@
 
       <p class="totalcaption">Total: <strong id="totalsum">60 TB (60.00 TB · 54.57 TiB)</strong></p>
 
-      <h3 class="section-hdr">Options A & B (Interconnect)</h3>
+      <h3 class="section-hdr">Interconnect Capacity</h3>
       <div class="field">
         <label class="field-label">{{ t.port_speed_label }}</label>
         <div class="pills" role="radiogroup" aria-label="Port speed">
@@ -197,30 +218,28 @@
         <span class="fieldhint">{{ t.link_count_hint }}</span>
       </label>
 
-      <label class="field">
-        <span class="field-label">{{ t.colo_label }} <span class="opt">{{ t.colo_opt }}</span></span>
-        <input type="number" name="colo_per_link_monthly" value="0" min="0" step="any" inputmode="decimal">
-        <span class="fieldhint">{{ t.colo_hint }}</span>
-      </label>
+      <!-- Advanced Settings Accordion -->
+      <details class="adv-details">
+        <summary class="adv-summary">{{ t.adv_settings }}</summary>
+        <div class="adv-body">
+          <label class="field">
+            <span class="field-label">{{ t.colo_label }} <span class="opt">{{ t.colo_opt }}</span></span>
+            <input type="number" name="colo_per_link_monthly" value="0" min="0" step="any" inputmode="decimal">
+            <span class="fieldhint">{{ t.colo_hint }}</span>
+          </label>
 
-      <h3 class="section-hdr">Option C (HA VPN)</h3>
-      <div class="field">
-        <label class="field-label">{{ t.vpn_tunnels_label }}</label>
-        <div class="pills" role="radiogroup" aria-label="VPN tunnels">
-          <label class="pill"><input type="radio" name="vpn_tunnels" value="2" checked> 2 (~1.25 Gbps)</label>
-          <label class="pill"><input type="radio" name="vpn_tunnels" value="4"> 4 (~5 Gbps, TGW)</label>
-          <label class="pill"><input type="radio" name="vpn_tunnels" value="8"> 8 (~10 Gbps, TGW)</label>
-          <label class="pill"><input type="radio" name="vpn_tunnels" value="16"> 16 (~20 Gbps, TGW)</label>
+          <div class="field">
+            <label class="field-label">{{ t.vpn_tunnels_label }} (Option C)</label>
+            <div class="pills" role="radiogroup" aria-label="VPN tunnels">
+              <label class="pill"><input type="radio" name="vpn_tunnels" value="2" checked> 2 (~1.25 Gbps)</label>
+              <label class="pill"><input type="radio" name="vpn_tunnels" value="4"> 4 (~5 Gbps, TGW)</label>
+              <label class="pill"><input type="radio" name="vpn_tunnels" value="8"> 8 (~10 Gbps, TGW)</label>
+              <label class="pill"><input type="radio" name="vpn_tunnels" value="16"> 16 (~20 Gbps, TGW)</label>
+            </div>
+            <p class="fieldhint">{{ t.vpn_hint }}</p>
+          </div>
         </div>
-        <p class="fieldhint">{{ t.vpn_hint }}</p>
-      </div>
-
-      <div class="field toggle-field">
-        <label class="toggle-label">
-          <input type="checkbox" name="show_breakeven" value="1">
-          <span>{{ t.show_breakeven_label }}</span>
-        </label>
-      </div>
+      </details>
 
       <div class="form-actions">
         <button type="submit" class="primary">{{ t.calculate_btn }}</button>

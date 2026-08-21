@@ -559,6 +559,87 @@ table.unittable th { font-weight: 600; color: var(--muted); font-size: 11px; tex
 .pill-b { background: #d1fae5; color: #065f46; }
 .pill-c { background: #fef3c7; color: #92400e; }
 
+/* ---------------- Result Tabs & Segmented Control ---------------- */
+.result-tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--bg);
+  padding: 4px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  margin: 18px 0 16px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.tab-btn {
+  flex: 1;
+  min-width: max-content;
+  background: transparent;
+  border: none;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.tab-btn:hover:not(.active) {
+  color: var(--fg);
+  background: rgba(0, 0, 0, 0.03);
+}
+.tab-btn.active {
+  background: var(--card);
+  color: var(--accent);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.tab-panel {
+  display: none;
+  animation: fadeIn 0.2s ease-in-out;
+}
+.tab-panel.active {
+  display: block;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(2px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ---------------- Advanced Settings Accordion ---------------- */
+.adv-details {
+  margin: 12px 0 6px;
+  border: 1px dashed var(--line);
+  border-radius: 6px;
+  background: #fbfcfd;
+}
+.adv-summary {
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+.adv-summary:hover {
+  color: var(--accent);
+}
+.adv-body {
+  padding: 10px 12px 6px;
+  border-top: 1px dashed var(--line);
+}
+
+/* ---------------- Mini Summary Table ---------------- */
+.mini-summary-table {
+  margin-top: 14px;
+  font-size: 13px;
+}
+.mini-summary-table td, .mini-summary-table th {
+  padding: 8px 12px;
+}
+
 /* ---------------- Print / PDF Optimization ---------------- */
 .print-only {
   display: none;
@@ -570,7 +651,7 @@ table.unittable th { font-weight: 600; color: var(--muted); font-size: 11px; tex
     color: #000;
     font-size: 12px;
   }
-  header, footer, .guide-btn, .lang-switch, .form-actions, .exportbar, main.grid > section.card:first-child {
+  header, footer, .guide-btn, .lang-switch, .form-actions, .exportbar, .result-tabs, main.grid > section.card:first-child {
     display: none !important;
   }
   main.grid {
@@ -585,6 +666,10 @@ table.unittable th { font-weight: 600; color: var(--muted); font-size: 11px; tex
   }
   .print-only {
     display: block !important;
+  }
+  .tab-panel {
+    display: block !important;
+    margin-bottom: 24px;
   }
   .quote-header {
     border-bottom: 2px solid #333;
