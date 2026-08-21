@@ -81,8 +81,8 @@
   {{ t.cheapest_verdict }} <strong>Option {{ cmp.cheaper }}</strong>
 </p>
 
-<!-- Result Navigation Tabs -->
-<div class="result-tabs" role="tablist">
+<!-- Result Navigation Tabs (Screen only) -->
+<div class="result-tabs screen-only" role="tablist">
   <button type="button" class="tab-btn active" data-tab="tab-summary" onclick="selectTab('tab-summary')">{{ t.tab_summary }}</button>
   <button type="button" class="tab-btn" data-tab="tab-breakdown" onclick="selectTab('tab-breakdown')">{{ t.tab_breakdown }}</button>
   <button type="button" class="tab-btn" data-tab="tab-performance" onclick="selectTab('tab-performance')">{{ t.tab_performance }}</button>
@@ -91,6 +91,10 @@
 
 <!-- ================= Tab 1: Cost Summary ================= -->
 <div id="tab-summary" class="tab-panel active">
+  <div class="print-only print-sec-hdr">
+    <h3>{{ t.tab_summary }}</h3>
+  </div>
+
   <!-- Visual Cost Breakdown Chart -->
   <div class="chart-card">
     <div class="chart-header">
@@ -135,8 +139,8 @@
     </div>
   </div>
 
-  <!-- High-level comparison summary table -->
-  <table class="breakdown mini-summary-table">
+  <!-- High-level comparison summary table (Screen only) -->
+  <table class="breakdown mini-summary-table screen-only">
     <thead>
       <tr>
         <th>{{ t.line_item }}</th>
@@ -176,6 +180,10 @@
 
 <!-- ================= Tab 2: Detailed Breakdown ================= -->
 <div id="tab-breakdown" class="tab-panel">
+  <div class="print-only print-sec-hdr">
+    <h3>{{ t.tab_breakdown }}</h3>
+  </div>
+
   <table class="breakdown">
     <thead>
       <tr>
@@ -292,6 +300,9 @@
 
 <!-- ================= Tab 3: Performance & Capacity ================= -->
 <div id="tab-performance" class="tab-panel">
+  <div class="print-only print-sec-hdr">
+    <h3>{{ t.tab_performance }}</h3>
+  </div>
   <!-- Link Utilization & Capacity Indicator -->
   <div class="cap {% if cap.over_capacity %}warn-cap{% endif %}">
     <div class="cap-header">
@@ -346,6 +357,9 @@
 
 <!-- ================= Tab 4: Break-even Analysis ================= -->
 <div id="tab-breakeven" class="tab-panel">
+  <div class="print-only print-sec-hdr">
+    <h3>{{ t.tab_breakeven }}</h3>
+  </div>
   <div class="breakeven-card">
     <div class="be-header">
       <span class="be-title">⚖ {{ t.breakeven_title }}</span>
