@@ -105,7 +105,7 @@ When architecting hybrid or multi-cloud connectivity between AWS and GCP in Seou
 | **Fixed Cost (2×10G / 2-tun)** | ~$3,415/mo + Colo ($400-$1,200) | ~$5,803/mo | ~$182.50/mo |
 | **AWS Egress Rate** | $0.041 / GB | $0.041 / GB | $0.108 – $0.126 / GB (+ $0.02 TGW) |
 | **GCP Egress Rate** | $0.042 / GiB | $0.042 / GiB | $0.150 – $0.190 / GiB |
-| **Provisioning Lead Time** | 4 – 12 weeks | 1 – 5 days | Minutes |
+| **Provisioning Lead Time** | 4 – 12 weeks | 2 – 4 weeks | Minutes |
 | **Crossover Point** | Best for high volume + existing colo | Best for high volume without colo | Best for < 15–25 TB/month |
 
 ---

@@ -87,6 +87,8 @@ def test_post_calculate_usd():
     assert "result-tabs" in response.text
     assert "tab-summary" in response.text
     assert "17.0 Gbps eff. (20G nominal × 85%)" in response.text
+    assert "tradeoffs-card" in response.text
+    assert "Non-Cost Trade-offs" in response.text
     assert "$" in response.text
 
 
@@ -108,6 +110,8 @@ def test_post_calculate_korean():
     assert "비용 구성 시각화" in response.text
     assert "고정 인프라" in response.text
     assert "17.0 Gbps 실효 (20G 명목 × 85%)" in response.text
+    assert "tradeoffs-card" in response.text
+    assert "필수 고려사항" in response.text
     assert "result-tabs" in response.text
     assert "tab-breakeven" in response.text
     # Technical terms preserved

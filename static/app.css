@@ -559,6 +559,75 @@ table.unittable th { font-weight: 600; color: var(--muted); font-size: 11px; tex
 .pill-b { background: #d1fae5; color: #065f46; }
 .pill-c { background: #fef3c7; color: #92400e; }
 
+/* ---------------- Architecture Decision Trade-offs Card ---------------- */
+.tradeoffs-card {
+  margin: 12px 0 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+.to-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #e2e8f0;
+}
+.to-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #1e293b;
+}
+.to-badge {
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--accent-soft);
+  color: var(--accent);
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+.to-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 12px;
+}
+@media (max-width: 600px) {
+  .to-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.to-item {
+  background: #fff;
+  border: 1px solid #edf2f7;
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+.to-item-warn {
+  background: #fffbeb;
+  border-color: #fef3c7;
+  grid-column: 1 / -1;
+}
+.to-lbl {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: #475569;
+  margin-bottom: 3px;
+}
+.to-item-warn .to-lbl {
+  color: #b45309;
+}
+.to-val {
+  font-size: 11.5px;
+  color: #334155;
+  line-height: 1.45;
+}
+.to-item-warn .to-val {
+  color: #92400e;
+}
+
 /* ---------------- Result Tabs & Segmented Control ---------------- */
 .result-tabs {
   display: flex;
@@ -745,7 +814,7 @@ table.unittable th { font-weight: 600; color: var(--muted); font-size: 11px; tex
   .totalbox .total {
     font-size: 20px !important;
   }
-  .chart-card, .cap, .breakeven-card, table.breakdown, .be-table {
+  .tradeoffs-card, .chart-card, .cap, .breakeven-card, table.breakdown, .be-table {
     page-break-inside: avoid;
     break-inside: avoid;
     border: 1px solid #cbd5e1 !important;

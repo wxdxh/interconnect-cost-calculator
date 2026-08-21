@@ -81,6 +81,48 @@
   {{ t.cheapest_verdict }} <strong>Option {{ cmp.cheaper }}</strong>
 </p>
 
+<!-- Architecture Decision Trade-offs Card -->
+<div class="tradeoffs-card">
+  <div class="to-header">
+    <span class="to-title">{{ t.tradeoffs_title }}</span>
+    <span class="to-badge">Option {{ cmp.cheaper }}</span>
+  </div>
+  <div class="to-grid">
+    <div class="to-item">
+      <span class="to-lbl">🎯 {{ t.tradeoff_fit_lbl }}</span>
+      <div class="to-val">
+        {% if cmp.cheaper == 'A' %}{{ t.to_a_fit }}
+        {% elif cmp.cheaper == 'B' %}{{ t.to_b_fit }}
+        {% else %}{{ t.to_c_fit }}{% endif %}
+      </div>
+    </div>
+    <div class="to-item">
+      <span class="to-lbl">⚡ {{ t.tradeoff_latency_lbl }}</span>
+      <div class="to-val">
+        {% if cmp.cheaper == 'A' %}{{ t.to_a_latency }}
+        {% elif cmp.cheaper == 'B' %}{{ t.to_b_latency }}
+        {% else %}{{ t.to_c_latency }}{% endif %}
+      </div>
+    </div>
+    <div class="to-item">
+      <span class="to-lbl">⏱ {{ t.tradeoff_leadtime_lbl }}</span>
+      <div class="to-val">
+        {% if cmp.cheaper == 'A' %}{{ t.to_a_leadtime }}
+        {% elif cmp.cheaper == 'B' %}{{ t.to_b_leadtime }}
+        {% else %}{{ t.to_c_leadtime }}{% endif %}
+      </div>
+    </div>
+    <div class="to-item to-item-warn">
+      <span class="to-lbl">⚠️ {{ t.tradeoff_caveats_lbl }}</span>
+      <div class="to-val">
+        {% if cmp.cheaper == 'A' %}{{ t.to_a_caveats }}
+        {% elif cmp.cheaper == 'B' %}{{ t.to_b_caveats }}
+        {% else %}{{ t.to_c_caveats }}{% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Result Navigation Tabs (Screen only) -->
 <div class="result-tabs screen-only" role="tablist">
   <button type="button" class="tab-btn active" data-tab="tab-summary" onclick="selectTab('tab-summary')">{{ t.tab_summary }}</button>
