@@ -101,16 +101,16 @@ When architecting hybrid or multi-cloud connectivity between AWS and GCP in Seou
 
 Cloud providers employ differing unit standards for network metering and billing:
 
-1. **AWS Data Transfer Out (DTO):**
-   * Measured in **decimal Gigabytes (GB)**: $1\text{ GB} = 10^9\text{ bytes} = 1,000,000,000\text{ bytes}$.
-   * $1\text{ TB} = 1,000\text{ GB} = 10^{12}\text{ bytes}$.
-2. **GCP Cloud Interconnect & Internet Egress:**
-   * Measured in **binary Gibibytes (GiB)**: $1\text{ GiB} = 2^{30}\text{ bytes} = 1,073,741,824\text{ bytes}$.
-   * $1\text{ TiB} = 1,024\text{ GiB} = 2^{40}\text{ bytes} = 1,099,511,627,776\text{ bytes}$.
+1. **AWS Data Transfer Out (DTO) — Decimal (SI):**
+   * Measured in **decimal Gigabytes (GB)**: `1 GB` = 10⁹ bytes = **1,000,000,000 bytes**.
+   * `1 TB` = 1,000 GB = 10¹² bytes = **1,000,000,000,000 bytes**.
+2. **GCP Cloud Interconnect & Internet Egress — Binary (IEC):**
+   * Measured in **binary Gibibytes (GiB)**: `1 GiB` = 2³⁰ bytes = **1,073,741,824 bytes**.
+   * `1 TiB` = 1,024 GiB = 2⁴⁰ bytes = **1,099,511,627,776 bytes**.
 
 ### Impact on Cost Calculations
-When migrating 100 TB ($10^{14}$ bytes) from GCP to AWS:
-* In GCP billing: $10^{14} \div 2^{30} \approx 93,132.26\text{ GiB} \times \$0.042/\text{GiB} = \$3,911.55$.
+When migrating **100 TB (10¹⁴ bytes)** from GCP to AWS:
+* In GCP billing: 10¹⁴ bytes ÷ 2³⁰ bytes ≈ **93,132.26 GiB** × $0.042/GiB = **$3,911.55**.
 * A naive calculation assuming 100,000 GiB would over-estimate cost by ~$288.
 * Our calculator automatically converts all input volumes to raw bytes first, ensuring 100% precision.
 
