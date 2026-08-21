@@ -57,6 +57,60 @@
       }
     }
 
+    function syncUrlFromForm(form) {
+      const url = new URL(window.location);
+      url.searchParams.set('a2g', form.elements.amount_a2g.value);
+      url.searchParams.set('g2a', form.elements.amount_g2a.value);
+      url.searchParams.set('unit', form.elements.unit.value);
+      url.searchParams.set('port', form.elements.port_gbps.value);
+      url.searchParams.set('links', form.elements.link_count.value);
+      url.searchParams.set('colo', form.elements.colo_per_link_monthly.value);
+      url.searchParams.set('vpn', form.elements.vpn_tunnels.value);
+      if (form.elements.lang && form.elements.lang.value) {
+        url.searchParams.set('lang', form.elements.lang.value);
+      }
+      window.history.replaceState({}, '', url.toString());
+    }
+
+    function syncFormFromUrl(form) {
+      const p = new URLSearchParams(window.location.search);
+      if (p.has('a2g')) form.elements.amount_a2g.value = p.get('a2g');
+      if (p.has('g2a')) form.elements.amount_g2a.value = p.get('g2a');
+      if (p.has('unit') && form.elements.unit) {
+        const uRadio = form.querySelector(`input[name="unit"][value="${p.get('unit')}"]`);
+        if (uRadio) uRadio.checked = true;
+      }
+      if (p.has('port') && form.elements.port_gbps) {
+        const pRadio = form.querySelector(`input[name="port_gbps"][value="${p.get('port')}"]`);
+        if (pRadio) pRadio.checked = true;
+      }
+      if (p.has('links')) form.elements.link_count.value = p.get('links');
+      if (p.has('colo')) form.elements.colo_per_link_monthly.value = p.get('colo');
+      if (p.has('vpn') && form.elements.vpn_tunnels) {
+        const vRadio = form.querySelector(`input[name="vpn_tunnels"][value="${p.get('vpn')}"]`);
+        if (vRadio) vRadio.checked = true;
+      }
+    }
+
+    function copyShareLink(btn) {
+      const url = window.location.href;
+      navigator.clipboard.writeText(url).then(() => {
+        const orig = btn.innerHTML;
+        btn.innerHTML = "✓ {{ t.share_copied }}";
+        btn.classList.add('btn-success');
+        setTimeout(() => {
+          btn.innerHTML = orig;
+          btn.classList.remove('btn-success');
+        }, 2000);
+      }).catch(() => {
+        prompt("Copy this URL:", url);
+      });
+    }
+
+    function triggerPrint() {
+      window.print();
+    }
+
     function switchLang(lang) {
       const url = new URL(window.location);
       url.searchParams.set('lang', lang);
@@ -66,6 +120,7 @@
     document.addEventListener("DOMContentLoaded", function() {
       const form = document.querySelector('form');
       if (form) {
+        syncFormFromUrl(form);
         fmtTotal(form);
         htmx.trigger(form, 'submit');
       }
@@ -94,7 +149,7 @@
     <h2>{{ t.inputs_heading }}</h2>
     <form hx-post="/calculate" hx-target="#result"
           hx-trigger="submit, change from:input, input delay:350ms from:input[type=number]"
-          oninput="fmtTotal(this)">
+          oninput="fmtTotal(this); syncUrlFromForm(this);">
       <input type="hidden" name="lang" value="{{ lang }}">
 
       <div class="field">
@@ -154,7 +209,11 @@
         <p class="fieldhint">{{ t.vpn_hint }}</p>
       </div>
 
-      <button type="submit" class="primary">{{ t.calculate_btn }}</button>
+      <div class="form-actions">
+        <button type="submit" class="primary">{{ t.calculate_btn }}</button>
+        <button type="button" class="btn-secondary" onclick="copyShareLink(this)">{{ t.share_btn }}</button>
+        <button type="button" class="btn-secondary" onclick="triggerPrint()">{{ t.print_btn }}</button>
+      </div>
     </form>
   </section>
 

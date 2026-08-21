@@ -271,3 +271,16 @@ def test_edge_case_single_link_and_invalid_inputs():
     assert res["inputs"]["link_count"] == 1
     assert res["inputs"]["vpn_tunnels"] == 2
     assert res["inputs"]["colo_per_link_monthly"] == 0.0
+
+
+def test_breakeven_crossover_calculation():
+    res = calculate(amount_a2g=50.0, amount_g2a=10.0, port_gbps=10, link_count=2, vpn_tunnels=2)
+    bk = res["breakeven"]
+    assert bk["has_crossover"] is True
+    # For 10G 2-links ($11,607/mo fixed infra), crossover vs 2-tunnel VPN occurs around ~135 TB
+    assert 50.0 < bk["crossover_tb"] < 200.0
+    assert len(bk["curve_points"]) >= 4
+    # At 0 TB, C should be cheaper than B
+    assert bk["curve_points"][0]["cost_c"] < bk["curve_points"][0]["cost_b"]
+    # At high volume (e.g. max curve), B should be cheaper than C
+    assert bk["curve_points"][-1]["cost_b"] < bk["curve_points"][-1]["cost_c"]

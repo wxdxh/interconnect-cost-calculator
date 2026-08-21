@@ -408,3 +408,197 @@ dl.glossary dd strong { color: var(--fg); font-weight: 600; }
 table.unittable { width: 100%; border-collapse: collapse; font-size: 13px; margin: 8px 0; }
 table.unittable th, table.unittable td { padding: 6px 10px; border-bottom: 1px solid var(--line); text-align: left; }
 table.unittable th { font-weight: 600; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; }
+
+/* ---------------- Form Actions & Buttons ---------------- */
+.form-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+.btn-secondary {
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--line);
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.btn-secondary:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.btn-success {
+  background: var(--winner-soft) !important;
+  border-color: var(--winner) !important;
+  color: var(--winner) !important;
+}
+
+/* ---------------- Break-even & Crossover Card ---------------- */
+.breakeven-card {
+  margin: 16px 0;
+  border: 1px solid var(--line);
+  background: #fdfefe;
+  border-radius: 8px;
+  padding: 16px 18px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+}
+.be-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.be-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--fg);
+}
+.be-badge {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border: 1px solid rgba(37, 99, 235, 0.2);
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+}
+.be-desc {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+.be-desc strong {
+  color: var(--fg);
+}
+.be-matrix-wrap {
+  overflow-x: auto;
+  margin-top: 8px;
+}
+.be-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.be-table th, .be-table td {
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  text-align: right;
+}
+.be-table th:first-child, .be-table td:first-child {
+  text-align: left;
+}
+.be-table th:last-child, .be-table td:last-child {
+  text-align: center;
+}
+.be-table th {
+  background: #f8fafc;
+  font-weight: 600;
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+.be-table tr.highlight-row {
+  background: #eff6ff;
+  font-weight: 600;
+}
+.be-table td.win-cell {
+  color: var(--winner);
+  font-weight: 700;
+  background: rgba(5, 150, 105, 0.04);
+}
+.curr-tag {
+  font-size: 10px;
+  color: var(--accent);
+  font-weight: 700;
+  margin-left: 4px;
+}
+.cross-tag {
+  font-size: 10px;
+  color: var(--warn);
+  font-weight: 700;
+  margin-left: 4px;
+}
+.pill-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 700;
+}
+.pill-a { background: #dbeafe; color: #1e40af; }
+.pill-b { background: #d1fae5; color: #065f46; }
+.pill-c { background: #fef3c7; color: #92400e; }
+
+/* ---------------- Print / PDF Optimization ---------------- */
+.print-only {
+  display: none;
+}
+
+@media print {
+  body {
+    background: #fff;
+    color: #000;
+    font-size: 12px;
+  }
+  header, footer, .guide-btn, .lang-switch, .form-actions, .exportbar, main.grid > section.card:first-child {
+    display: none !important;
+  }
+  main.grid {
+    display: block !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  #result-wrap {
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  .quote-header {
+    border-bottom: 2px solid #333;
+    padding-bottom: 12px;
+    margin-bottom: 16px;
+  }
+  .quote-header h2 {
+    margin: 0 0 4px;
+    font-size: 20px;
+    color: #111;
+  }
+  .quote-header .sub {
+    margin: 0 0 8px;
+    color: #555;
+    font-size: 12px;
+  }
+  .quote-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 11px;
+    color: #333;
+    background: #f8f9fa;
+    padding: 8px 12px;
+    border-radius: 4px;
+    border: 1px solid #e2e8f0;
+  }
+  .totalbox {
+    border: 1px solid #ccc !important;
+    page-break-inside: avoid;
+  }
+  .chart-card, .cap, .breakeven-card, table.breakdown {
+    page-break-inside: avoid;
+    border: 1px solid #ccc !important;
+  }
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}

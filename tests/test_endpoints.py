@@ -98,6 +98,8 @@ def test_post_calculate_korean():
     assert "비용 구성 시각화" in response.text
     assert "고정 인프라" in response.text
     assert "Link 대역폭 사용률" in response.text
+    assert "손익분기점" in response.text or "Break-even" in response.text
+    assert "be-table" in response.text
     # Technical terms preserved
     assert "AWS DX" in response.text
     assert "Cross-Cloud Interconnect" in response.text

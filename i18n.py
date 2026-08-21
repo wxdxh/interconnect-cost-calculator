@@ -56,6 +56,14 @@ TRANSLATIONS = {
         "min": "min",
         "h": "h",
         "d": "d",
+        "breakeven_title": "Break-even & Crossover Analysis",
+        "breakeven_summary_prefix": "Option B (Cross-Cloud Interconnect) becomes cheaper than Option C (HA VPN) at approx.",
+        "breakeven_chart_title": "Monthly Cost Curve by Traffic Volume",
+        "traffic_vol": "Traffic volume",
+        "share_btn": "🔗 Share Link",
+        "share_copied": "Link copied to clipboard!",
+        "print_btn": "🖨 Print / PDF",
+        "quote_title": "Interconnect Cost Assessment & Architecture Quote",
     },
     "ko": {
         "title": "Interconnect 비용 계산기",
@@ -112,6 +120,14 @@ TRANSLATIONS = {
         "min": "분",
         "h": "시간",
         "d": "일",
+        "breakeven_title": "손익분기점 (Break-even) 및 교차점 분석",
+        "breakeven_summary_prefix": "월 트래픽이 약",
+        "breakeven_chart_title": "트래픽 증가에 따른 월 비용 곡선 추이",
+        "traffic_vol": "트래픽 규모",
+        "share_btn": "🔗 공유 링크 복사",
+        "share_copied": "공유 링크가 클립보드에 복사되었습니다!",
+        "print_btn": "🖨 견적서 인쇄 / PDF",
+        "quote_title": "Interconnect 아키텍처 비용 검토 견적서",
     }
 }
 

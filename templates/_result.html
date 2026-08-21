@@ -3,8 +3,21 @@
 {% set c = option_c %}
 {% set cmp = comparison %}
 {% set cap = capacity %}
+{% set bk = breakeven %}
 {% set u = inputs.unit %}
 {% set lang = inputs.lang %}
+
+<!-- Print-only quote banner -->
+<div class="print-only quote-header">
+  <div class="quote-title-wrap">
+    <h2>{{ t.quote_title }}</h2>
+    <p class="sub">AWS Seoul (ap-northeast-2) ↔ GCP Seoul (asia-northeast3) · Valid as of {{ pricing_as_of }}</p>
+  </div>
+  <div class="quote-meta">
+    <span><strong>Inputs:</strong> AWS→GCP {{ "%.2f"|format(inputs.amount_a2g) }} {{ u }} · GCP→AWS {{ "%.2f"|format(inputs.amount_g2a) }} {{ u }} (Total {{ "%.2f"|format(inputs.amount_total) }} {{ u }})</span>
+    <span><strong>Infra:</strong> {{ inputs.port_gbps }}G × {{ inputs.link_count }} links (A/B) · {{ inputs.vpn_tunnels }} VPN tunnels (C)</span>
+  </div>
+</div>
 
 {% if inputs.link_count < 2 %}
 <div class="spof">
@@ -67,6 +80,68 @@
 <p class="verdict">
   {{ t.cheapest_verdict }} <strong>Option {{ cmp.cheaper }}</strong>
 </p>
+
+<!-- Break-even & Crossover Analysis Card -->
+<div class="breakeven-card">
+  <div class="be-header">
+    <span class="be-title">⚖ {{ t.breakeven_title }}</span>
+    {% if bk.has_crossover %}
+    <span class="be-badge">
+      {% if lang == 'ko' %}
+        Option B(CCI) 손익분기점: <strong>~{{ "%.1f"|format(bk.crossover_tb) }} TB / 월</strong>
+      {% else %}
+        Option B(CCI) Crossover: <strong>~{{ "%.1f"|format(bk.crossover_tb) }} TB / mo</strong>
+      {% endif %}
+    </span>
+    {% endif %}
+  </div>
+
+  <div class="be-body">
+    {% if bk.has_crossover %}
+    <p class="be-desc">
+      {% if lang == 'ko' %}
+        월 트래픽이 <strong>{{ "%.1f"|format(bk.crossover_tb) }} TB</strong> 미만일 때는 <strong>Option C (HA VPN)</strong>이 고정비가 낮아 가장 저렴하며, <strong>{{ "%.1f"|format(bk.crossover_tb) }} TB</strong>를 초과하면 Egress 요금이 저렴한 <strong>Option B (Cross-Cloud Interconnect)</strong>가 총비용 측면에서 더 유리해집니다.
+      {% else %}
+        For traffic below <strong>{{ "%.1f"|format(bk.crossover_tb) }} TB/mo</strong>, <strong>Option C (HA VPN)</strong> is most economical due to minimal fixed infra. Above <strong>{{ "%.1f"|format(bk.crossover_tb) }} TB/mo</strong>, <strong>Option B (Cross-Cloud Interconnect)</strong> becomes cheaper due to lower per-GB interconnect egress rates.
+      {% endif %}
+    </p>
+    {% endif %}
+
+    <!-- Volume Cost Comparison Matrix -->
+    <div class="be-matrix-wrap">
+      <table class="be-table">
+        <thead>
+          <tr>
+            <th>{{ t.traffic_vol }}</th>
+            <th>Option A (DI+DX)</th>
+            <th>Option B (CCI)</th>
+            <th>Option C (HA VPN)</th>
+            <th>{{ t.cheapest_verdict }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for pt in bk.curve_points %}
+          <tr {% if (pt.vol_tb - inputs.total_tb)|abs < 0.1 %}class="highlight-row"{% endif %}>
+            <td><strong>{{ "%.1f"|format(pt.vol_tb) }} TB</strong> {% if (pt.vol_tb - inputs.total_tb)|abs < 0.1 %}<span class="curr-tag">(current)</span>{% elif bk.has_crossover and (pt.vol_tb - bk.crossover_tb)|abs < 0.2 %}<span class="cross-tag">(crossover)</span>{% endif %}</td>
+            <td>{{ pt.cost_a|money }}</td>
+            <td {% if pt.cost_b <= pt.cost_c and pt.cost_b <= pt.cost_a %}class="win-cell"{% endif %}>{{ pt.cost_b|money }}</td>
+            <td {% if pt.cost_c <= pt.cost_b and pt.cost_c <= pt.cost_a %}class="win-cell"{% endif %}>{{ pt.cost_c|money }}</td>
+            <td>
+              {% if pt.cost_c <= pt.cost_b and pt.cost_c <= pt.cost_a %}
+                <span class="pill-badge pill-c">Option C</span>
+              {% elif pt.cost_b <= pt.cost_a %}
+                <span class="pill-badge pill-b">Option B</span>
+              {% else %}
+                <span class="pill-badge pill-a">Option A</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
 
 <!-- Visual Cost Breakdown Chart -->
 <div class="chart-card">
@@ -286,6 +361,8 @@
   <span class="exportlbl">{{ t.export_label }}</span>
   <button type="button" class="exportbtn" onclick="downloadExport(this, 'csv')">⬇ CSV</button>
   <button type="button" class="exportbtn" onclick="downloadExport(this, 'md')">⬇ Markdown</button>
+  <button type="button" class="exportbtn" onclick="triggerPrint()">{{ t.print_btn }}</button>
+  <button type="button" class="exportbtn" onclick="copyShareLink(this)">{{ t.share_btn }}</button>
 </div>
 
 <p class="fieldhint">

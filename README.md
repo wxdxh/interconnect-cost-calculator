@@ -13,9 +13,12 @@ A modern monthly cost calculator and architecture analytics tool comparing conne
 ## Features
 
 - **Line-item Breakdown:** Detailed fixed infrastructure, AWS→GCP egress, and GCP→AWS egress accounting.
+- **Break-even & Crossover Matrix:** Automatic mathematical calculation and matrix view of the volume crossover point where Option B (Cross-Cloud Interconnect) becomes cheaper than Option C (HA VPN).
 - **Bidirectional Analytics:** Real-time transfer time estimation for both directions (AWS → GCP and GCP → AWS) formatted in sec/min/hr/days.
 - **Visual Composition Charts:** Visual stacked bar chart illustrating fixed infra vs directional egress breakdowns.
 - **Capacity & Utilization Gauge:** Link capacity meter with traffic health alerts (<70% green, 70-100% warning, >100% danger).
+- **Shareable Permalinks:** Live two-way synchronization with browser URL parameters and one-click share link copy.
+- **Print & PDF Quote Generation:** Dedicated print layout formatting the comparison into a clean, professional architecture cost estimate / RFP quote.
 - **Multi-language Support (EN / KO):** Seamless English and 한국어 language toggle (preserving industry-standard technical terminology).
 - **Unit Precision:** Full decimal-GB ($10^9$ B) vs binary-GiB ($2^{30}$ B) billing math.
 - **Export Formats:** Full CSV and GitHub-flavored Markdown export support in the selected language.

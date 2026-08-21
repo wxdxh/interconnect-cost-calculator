@@ -221,6 +221,73 @@ def calculate(
     b_infra_pct, b_eg_a2g_pct, b_eg_g2a_pct = _pcts(b_infra, aws_dto_a2g, gcp_egress_g2a_ic, b_total)
     c_infra_pct, c_eg_a2g_pct, c_eg_g2a_pct = _pcts(c_infra, c_aws_internet_egress + c_aws_tgw_data, c_gcp_internet_egress, c_total)
 
+    # ---------------- Break-even & Curve Points ----------------
+    ratio_a2g = (amount_a2g / (amount_a2g + amount_g2a)) if (amount_a2g + amount_g2a) > 0 else 0.5
+    ratio_g2a = 1.0 - ratio_a2g
+
+    def _calc_totals_at_tb(v_tb: float) -> tuple[float, float, float]:
+        v_bytes_a2g = v_tb * (10**12) * ratio_a2g
+        v_bytes_g2a = v_tb * (10**12) * ratio_g2a
+        v_gb_a2g = v_bytes_a2g / GB_BYTES
+        v_gib_g2a = v_bytes_g2a / GIB_BYTES
+
+        v_aws_dto = v_gb_a2g * aws_dx["dto_seoul_local_per_gb"]
+        v_gcp_egress = v_gib_g2a * gcp_di["egress_asia_to_asia_per_gib"]
+
+        tot_a = a_infra + v_aws_dto + v_gcp_egress
+        tot_b = b_infra + v_aws_dto + v_gcp_egress
+
+        v_c_aws_eg = _tiered_cost_gb(v_gb_a2g, vpn["aws_internet_egress_seoul_tiers_per_gb"])
+        v_c_tgw_data = (vpn["aws_tgw_data_processing_per_gb"] * v_gb_a2g) if uses_tgw else 0.0
+        v_c_gcp_eg = _tiered_cost_gib(v_gib_g2a, vpn["gcp_internet_egress_seoul_to_korea_tiers_per_gib"])
+        tot_c = c_infra + v_c_aws_eg + v_c_tgw_data + v_c_gcp_eg
+        return tot_a, tot_b, tot_c
+
+    # Find crossover where B becomes cheaper than C
+    low, high = 0.0, 500.0
+    crossover_tb = None
+    if _calc_totals_at_tb(0.0)[1] > _calc_totals_at_tb(0.0)[2]:
+        for _ in range(30):
+            mid = (low + high) / 2.0
+            _, mid_b, mid_c = _calc_totals_at_tb(mid)
+            if mid_b < mid_c:
+                high = mid
+                crossover_tb = mid
+            else:
+                low = mid
+
+    current_tb = bytes_total / (10**12)
+    base_max = max(100.0, round(current_tb * 1.5, -1))
+    if crossover_tb:
+        max_curve_tb = max(base_max, round(crossover_tb * 1.5, -1))
+    else:
+        max_curve_tb = base_max
+
+    sample_vols = sorted(list(set([
+        0.0,
+        round(max_curve_tb * 0.1, 1),
+        round(max_curve_tb * 0.25, 1),
+        round(max_curve_tb * 0.5, 1),
+        round(max_curve_tb * 0.75, 1),
+        round(max_curve_tb, 1),
+        round(current_tb, 1) if current_tb > 0 else 0.0,
+        round(crossover_tb, 1) if (crossover_tb and 0 < crossover_tb <= max_curve_tb) else 0.0
+    ])))
+
+    curve_points = []
+    max_cost_in_curve = 1.0
+    for sv in sample_vols:
+        if sv <= 0 and curve_points:
+            continue
+        ta, tb, tc = _calc_totals_at_tb(sv)
+        max_cost_in_curve = max(max_cost_in_curve, ta, tb, tc)
+        curve_points.append({
+            "vol_tb": sv,
+            "cost_a": ta,
+            "cost_b": tb,
+            "cost_c": tc,
+        })
+
     return {
         "inputs": {
             "unit": unit,
@@ -323,6 +390,13 @@ def calculate(
             "aggregate_gbps": aggregate_gbps,
             "utilization_pct": utilization,
             "over_capacity": utilization > 100.0,
+        },
+        "breakeven": {
+            "crossover_tb": crossover_tb,
+            "has_crossover": crossover_tb is not None,
+            "curve_points": curve_points,
+            "max_curve_tb": max_curve_tb,
+            "max_cost_in_curve": max_cost_in_curve,
         },
         "pricing_as_of": PRICING["as_of"],
         "t": t,
