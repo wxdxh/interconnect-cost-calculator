@@ -47,6 +47,8 @@ def test_get_guide_korean():
     assert response.status_code == 200
     assert "text/html" in response.headers["content-type"]
     assert "계산기로 돌아가기" in response.text
+    assert "Interconnect 아키텍처 및 비용 분석 가이드" in response.text
+    assert "연결 옵션 비교 구조도" in response.text
 
 
 def test_get_guide_md():
@@ -55,6 +57,11 @@ def test_get_guide_md():
     assert "text/markdown" in response.headers["content-type"]
     assert "# Interconnect Architecture & Cost Guide" in response.text
     assert "Cross-Cloud Interconnect" in response.text
+
+    # Korean md endpoint test
+    response_ko = client.get("/guide.md?lang=ko")
+    assert response_ko.status_code == 200
+    assert "# Interconnect 아키텍처 및 비용 분석 가이드" in response_ko.text
 
 
 def test_post_calculate_usd():
@@ -78,6 +85,8 @@ def test_post_calculate_usd():
     assert "Visual Cost Composition Breakdown" in response.text
     assert "Link Capacity Utilization" in response.text
     assert "$" in response.text
+    # By default, breakeven is OFF
+    assert "be-table" not in response.text
 
 
 def test_post_calculate_korean():
@@ -90,6 +99,7 @@ def test_post_calculate_korean():
         "colo_per_link_monthly": "0",
         "vpn_tunnels": "2",
         "lang": "ko",
+        "show_breakeven": "1",
     }
     response = client.post("/calculate", data=payload)
     assert response.status_code == 200

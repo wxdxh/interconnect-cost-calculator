@@ -9,7 +9,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY main.py i18n.py pricing.json USER_GUIDE.md ./
+COPY main.py i18n.py pricing.json USER_GUIDE.md USER_GUIDE_KO.md ./
 COPY templates ./templates
 COPY static ./static
 

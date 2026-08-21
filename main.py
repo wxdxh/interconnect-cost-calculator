@@ -5,7 +5,7 @@ import io
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Optional
 
 import markdown as md_lib
 from fastapi import FastAPI, Form
@@ -107,6 +107,7 @@ def calculate(
     colo_per_link_monthly: float = 0.0,
     vpn_tunnels: int = 2,
     lang: str = "en",
+    show_breakeven: bool = False,
 ) -> dict:
     hours = PRICING["hours_per_month"]
     aws_dx = PRICING["aws_dx"]
@@ -308,6 +309,7 @@ def calculate(
             "total_tb": bytes_total / (10 ** 12),
             "total_tib": bytes_total / (2 ** 40),
             "lang": lang_code,
+            "show_breakeven": bool(show_breakeven),
         },
         "option_a": {
             "label": "AWS DX + GCP Dedicated Interconnect",
@@ -430,7 +432,9 @@ async def calc(
     colo_per_link_monthly: float = Form(0.0),
     vpn_tunnels: int = Form(2),
     lang: str = Form("en"),
+    show_breakeven: Optional[str] = Form(None),
 ):
+    is_be = str(show_breakeven).lower() in ("1", "true", "on", "yes")
     ctx = calculate(
         amount_a2g=amount_a2g,
         amount_g2a=amount_g2a,
@@ -440,6 +444,7 @@ async def calc(
         colo_per_link_monthly=colo_per_link_monthly,
         vpn_tunnels=vpn_tunnels,
         lang=lang,
+        show_breakeven=is_be,
     )
     return templates.TemplateResponse(request, "_result.html", ctx)
 
@@ -643,20 +648,23 @@ async def export_md(
     )
 
 
-GUIDE_PATH = BASE_DIR / "USER_GUIDE.md"
-_GUIDE_CACHE: dict = {"mtime": 0.0, "html": ""}
+GUIDE_PATH_EN = BASE_DIR / "USER_GUIDE.md"
+GUIDE_PATH_KO = BASE_DIR / "USER_GUIDE_KO.md"
+_GUIDE_CACHE: dict = {}
 
 
-def _render_guide_html() -> str:
-    mtime = GUIDE_PATH.stat().st_mtime
-    if _GUIDE_CACHE["mtime"] != mtime or not _GUIDE_CACHE["html"]:
-        text = GUIDE_PATH.read_text(encoding="utf-8")
-        _GUIDE_CACHE["html"] = md_lib.markdown(
+def _render_guide_html(lang: str = "en") -> str:
+    path = GUIDE_PATH_KO if lang == "ko" and GUIDE_PATH_KO.exists() else GUIDE_PATH_EN
+    mtime = path.stat().st_mtime
+    cache_entry = _GUIDE_CACHE.get(lang)
+    if not cache_entry or cache_entry["mtime"] != mtime:
+        text = path.read_text(encoding="utf-8")
+        html = md_lib.markdown(
             text,
             extensions=["extra", "tables", "toc", "sane_lists", "fenced_code"],
         )
-        _GUIDE_CACHE["mtime"] = mtime
-    return _GUIDE_CACHE["html"]
+        _GUIDE_CACHE[lang] = {"mtime": mtime, "html": html}
+    return _GUIDE_CACHE[lang]["html"]
 
 
 @app.get("/guide", response_class=HTMLResponse)
@@ -667,7 +675,7 @@ async def guide(request: Request, lang: str = "en"):
         request,
         "guide.html",
         {
-            "body_html": _render_guide_html(),
+            "body_html": _render_guide_html(lang_code),
             "pricing_as_of": PRICING["as_of"],
             "lang": lang_code,
             "t": t,
@@ -676,8 +684,10 @@ async def guide(request: Request, lang: str = "en"):
 
 
 @app.get("/guide.md", response_class=PlainTextResponse)
-async def guide_md():
-    return PlainTextResponse(GUIDE_PATH.read_text(encoding="utf-8"), media_type="text/markdown; charset=utf-8")
+async def guide_md(lang: str = "en"):
+    lang_code = "ko" if str(lang).lower() in ("ko", "kr", "korean") else "en"
+    path = GUIDE_PATH_KO if lang_code == "ko" and GUIDE_PATH_KO.exists() else GUIDE_PATH_EN
+    return PlainTextResponse(path.read_text(encoding="utf-8"), media_type="text/markdown; charset=utf-8")
 
 
 @app.get("/healthz")

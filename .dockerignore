@@ -4,3 +4,4 @@ __pycache__
 .git
 .gitignore
 !USER_GUIDE.md
+!USER_GUIDE_KO.md

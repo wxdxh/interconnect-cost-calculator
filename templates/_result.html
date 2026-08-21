@@ -81,7 +81,8 @@
   {{ t.cheapest_verdict }} <strong>Option {{ cmp.cheaper }}</strong>
 </p>
 
-<!-- Break-even & Crossover Analysis Card -->
+<!-- Break-even & Crossover Analysis Card (Conditional) -->
+{% if inputs.show_breakeven %}
 <div class="breakeven-card">
   <div class="be-header">
     <span class="be-title">⚖ {{ t.breakeven_title }}</span>
@@ -142,6 +143,7 @@
     </div>
   </div>
 </div>
+{% endif %}
 
 <!-- Visual Cost Breakdown Chart -->
 <div class="chart-card">

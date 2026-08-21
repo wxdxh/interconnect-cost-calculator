@@ -66,6 +66,9 @@
       url.searchParams.set('links', form.elements.link_count.value);
       url.searchParams.set('colo', form.elements.colo_per_link_monthly.value);
       url.searchParams.set('vpn', form.elements.vpn_tunnels.value);
+      if (form.elements.show_breakeven) {
+        url.searchParams.set('be', form.elements.show_breakeven.checked ? '1' : '0');
+      }
       if (form.elements.lang && form.elements.lang.value) {
         url.searchParams.set('lang', form.elements.lang.value);
       }
@@ -89,6 +92,9 @@
       if (p.has('vpn') && form.elements.vpn_tunnels) {
         const vRadio = form.querySelector(`input[name="vpn_tunnels"][value="${p.get('vpn')}"]`);
         if (vRadio) vRadio.checked = true;
+      }
+      if (p.has('be') && form.elements.show_breakeven) {
+        form.elements.show_breakeven.checked = (p.get('be') === '1');
       }
     }
 
@@ -207,6 +213,13 @@
           <label class="pill"><input type="radio" name="vpn_tunnels" value="16"> 16 (~20 Gbps, TGW)</label>
         </div>
         <p class="fieldhint">{{ t.vpn_hint }}</p>
+      </div>
+
+      <div class="field toggle-field">
+        <label class="toggle-label">
+          <input type="checkbox" name="show_breakeven" value="1">
+          <span>{{ t.show_breakeven_label }}</span>
+        </label>
       </div>
 
       <div class="form-actions">
